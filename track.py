@@ -1,5 +1,9 @@
+# track.py
+# This file contains all the necessary component to simulate a ractrack
+
 import numpy as np
 import math
+import utils
 
 # Position: not location, but where you
 # tInput: throttle input
@@ -7,15 +11,112 @@ import math
 
 STEPT = 0.1
 
+COLLISONPEN = 1.0
+
 class Track:
-	def __init__(self, miu):
+	def __init__(self, miu, dot_miu, w_feet, l_feet, board_lst, dot_lst, finish_line):
 		# Friction
 		self.miu = miu
+		w = utils.ftToMm(w_feet)
+		l = utils.ftToMm(l_feet)
+		self._grid = self.initializeGrid(w, l)
+		self.buildDots(dot_lst, w, l)
+		self.buildBoards(board_lst)
+		self.buildFinishLine(finish_line)
 
+
+	'''
+	Initialize a 1-padded zero arrays as the grid
+	'''
+	def initializeGrid(self, w, l):
+		g = np.zeros((w, l))
+		# Zero pad the boarders
+		g[0:100,:] = np.ones((100, l))
+		g[w-100:w,:] = np.ones((100, l))
+		g[:,0:100] = np.ones((w, 100))
+		g[:,l-100:l] = np.ones((w, 100))
+		return g.copy()
+
+	'''
+	The board_lst will be a list of form
+	((endpoint_A_y, endpoint_A_x), (endpoint_B_y, endpoint_B_x), width)
+	Enforced: endpoint_A_y <= endpoint_B_y, and endpoint_A_x <= endpoint_B_x
+	'''
+	def buildBoards(self, board_lst):
+		for board in board_lst:
+			endpoint_A_y_ft, endpoint_A_x_ft = board[0]
+			endpoint_A_y = utils.ftToMm(endpoint_A_y_ft)
+			endpoint_A_x = utils.ftToMm(endpoint_A_x_ft)
+
+			endpoint_B_y_ft, endpoint_B_x_ft = board[1]
+			endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
+			endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
+			assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
+			assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
+
+			half_width = utils.ftToMm(board[2]/2)
+			# Board is horizontal, or, aligned with length
+			if endpoint_A_y == endpoint_B_y:
+				self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] = np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
+			# Board is vertical, or, aligned with width
+			elif endpoint_A_x == endpoint_B_x:
+				self._grid[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] = np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
+			# No support of diagonal board yet
+			else:
+				print("Error: do not support diagonal board")
+
+	'''
+	The dot_lst will be a list of form
+	((y,x), radius), in feets
+	'''
+	def buildDots(self, dot_lst, w, l):
+		for dot in dot_lst:
+			y_ft, x_ft = dot[0]
+			y = utils.ftToMm(y_ft)
+			x = utils.ftToMm(x_ft)
+
+			r_ft = dot[1]
+			r = utils.ftToMm(r_ft)
+
+			a,b = np.ogrid[-y:w-y, -x:l-x]
+			mask = a*a + b*b <= r*r
+
+			self._grid[mask] = -1
+	
+
+	'''
+	The finish line will be in the form of
+	((endpoint_A_y, endpoint_A_x), (endpoint_B_y, endpoint_B_x), width)
+	'''
+	def buildFinishLine(self, finish_line):
+		endpoint_A_y_ft, endpoint_A_x_ft = finish_line[0]
+		endpoint_A_y = utils.ftToMm(endpoint_A_y_ft)
+		endpoint_A_x = utils.ftToMm(endpoint_A_x_ft)
+
+		endpoint_B_y_ft, endpoint_B_x_ft = finish_line[1]
+		endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
+		endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
+		assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
+		assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
+
+		half_width = utils.ftToMm(finish_line[2]/2)
+		# Board is horizontal, or, aligned with length
+		if endpoint_A_y == endpoint_B_y:
+			self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] = -2 * np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
+		# Board is vertical, or, aligned with width
+		elif endpoint_A_x == endpoint_B_x:
+			self._grid[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] = -2 * np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
+		# No support of diagonal board yet
+		else:
+			print("Error: do not support diagonal board")
+
+
+	def getGrid(self):
+		return self._grid
 
 
 class Car:
-	def __init__(self, startingState, carNumber, startingRanking, mass, drag):
+	def __init__(self, startingState, carNumber, startingRanking, mass, length, width):
 		self.carNumber = carNumber
 		self._mass = mass
 		self.a = a
@@ -23,21 +124,33 @@ class Car:
 
 
 class CarState:
-	def __init__(self, startLocation, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, isLinear = True):
+	def __init__(self, startLocation, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, isLinear = True):
 		self._location = startLocation
 		self._velocity = startVelocity
 		self._rank = startRanking
 		self._mass = mass
 		self._drag = drag
-		self._throttle = ()
 		self._steering = Steering(maxTurningAngle)
 		self._throttle = Throttle(drag, topSpeed, isLinear)
+		self._length = length
+		# self._cornerDist = np.norm([length, width])
 
 	def getLocation(self):
 		return self._location
 
 	def getVelocity(self):
 		return self._velocity
+
+	def checkCollison(self, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
+		headPosition = nextVelocity_unit * (self._length/2)
+		x = int(headPosition[0])
+		y = int(headPosition[1])
+		if curTrack.grid[x][y]:
+			return (0, 0), self._location - COLLISONPEN* desired_nextVelocity
+		else:
+			return desired_nextVelocity, desired_nextLocation
+
+
 
 	def step(self, sInput, tInput, curTrack):
 		# The current track contains information about other car on the track
@@ -54,10 +167,9 @@ class CarState:
 		nextVelocity_unit = self._steeing.rotateVelocity(curVelocity_unit, turningAngle)
 		a_lim_t = math.sqrt(np.squre(a_lim) - np.square(a_c))
 		nextSpeed = self._throttle.getNewSpeed(curSpeed, tInput, a_lim_t)
-		self._velocity = nextSpeed * nextVelocity_unit
-		self._location = self._location + self._velocity * STEPT
-
-
+		desired_nextVelocity = nextSpeed * nextVelocity_unit
+		desired_nextLocation = self._location + self._velocity * STEPT
+		self._velocity, self._location = checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation)
 
 
 class Steering:
@@ -78,7 +190,7 @@ class Steering:
 			turningR_max = curSpeed * curSpeed / a_lim
 			turningAngle_max = math.degrees(math.asin(assumedTravel / (2.0 * turningR_max))) * sInput / abs(sInput)
 			return turningAngle_max, a_lim
-
+	'''
 	def rotateVelocity(self, curVelocity_unit, turningAngle):
 		assert turningAngle < self._maxAngle
 		old_theta = 0
@@ -96,8 +208,9 @@ class Steering:
 
 		# checkme
 		return (math.cos(new_theta), math.sin(new_theta))
-
-
+	'''
+	def rotateVelocity(self, curVelocity_unit, turningAngle):
+		return utils.rotateVector(curVelocity_unit, - turningAngle)
 
 
 class Throttle:
@@ -125,12 +238,6 @@ class Throttle:
 			return curSpeed + a_t * STEPT
 		else:
 			raise NotImplementedError
-
-
-
-
-
-
 
 
 
