@@ -15,7 +15,7 @@ from PIL import ImageDraw
 
 STEPT = 0.1
 
-COLLISONPEN = 1.0
+COLLISONPEN = 3.0
 
 class Track:
 	def __init__(self, miu, dot_miu, w_feet, l_feet, board_lst, dot_lst, finish_line):
@@ -23,7 +23,7 @@ class Track:
 		self.miu = miu
 		w = utils.ftToMm(w_feet)
 		l = utils.ftToMm(l_feet)
-		self._grid = self.initializeGrid(w, l)
+		self._grid = self.initializeGrid(w, l, 500)
 		self.buildDots(dot_lst, w, l)
 		self.buildBoards(board_lst)
 		self.buildFinishLine(finish_line)
@@ -33,13 +33,13 @@ class Track:
 	'''
 	Initialize a 1-padded zero arrays as the grid
 	'''
-	def initializeGrid(self, w, l):
+	def initializeGrid(self, w, l, boardwidth):
 		g = np.zeros((w, l))
 		# Zero pad the boarders
-		g[0:100,:] = np.ones((100, l))
-		g[w-100:w,:] = np.ones((100, l))
-		g[:,0:100] = np.ones((w, 100))
-		g[:,l-100:l] = np.ones((w, 100))
+		g[0:boardwidth,:] = np.ones((boardwidth, l))
+		g[w-boardwidth:w,:] = np.ones((boardwidth, l))
+		g[:,0:boardwidth] = np.ones((w, boardwidth))
+		g[:,l-boardwidth:l] = np.ones((w, boardwidth))
 		return g.copy()
 
 	'''
@@ -155,8 +155,8 @@ class Car:
 
 class CarState:
 	def __init__(self, startLocation_ft, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, isLinear = True):
-		startLocation_x = utils.ftToMm(startLocation_ft[0])
-		startLocation_y = utils.ftToMm(startLocation_ft[1])
+		startLocation_y = utils.ftToMm(startLocation_ft[0])
+		startLocation_x = utils.ftToMm(startLocation_ft[1])
 		self._location = [startLocation_y, startLocation_x]
 		self._velocity = startVelocity
 		self._rank = startRanking
@@ -166,6 +166,7 @@ class CarState:
 		self._throttle = Throttle(drag, topSpeed, isLinear)
 		self._length = length
 		self._width = width
+		self._recover = False
 
 		self._startCrossing = False
 		# own clock
@@ -185,16 +186,18 @@ class CarState:
 
 	def checkCollison(self, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
 		headPosition = np.multiply(nextVelocity_unit,  (self._length/2)) + desired_nextLocation
-		x = int(headPosition[0])
-		y = int(headPosition[1])
-		if curTrack.getGrid()[y][x] == 1:
-			return 0.001 * nextVelocity_unit, self._location - COLLISONPEN* desired_nextVelocity
+		y = int(headPosition[0])
+		x = int(headPosition[1])
+		if not self._recover and curTrack.getGrid()[y][x] == 1:
+			self._recover = True
+			return np.multiply(0.0001, nextVelocity_unit), self._location - np.multiply(COLLISONPEN, desired_nextVelocity)
 		else:
+			self._recover = False
 			return desired_nextVelocity, desired_nextLocation
 
 	def getReward(self, curLocation, nextLocation, nextVelocity, curTrack):
 		self._clock += 1;
-		if np.linalg.norm(nextVelocity) < 0.01:
+		if np.linalg.norm(nextVelocity) == 0.0001:
 			print("collision")
 			rew = -5
 		else:
@@ -227,6 +230,7 @@ class CarState:
 
 	def step(self, sInput, tInput, curTrack):
 		# The current track contains information about other car on the track
+		print("===========")
 		print("Steering Input", sInput)
 		print("Throttle Input", tInput)
 		
@@ -267,6 +271,7 @@ class CarState:
 		print("Actual next location: ", nextLocation)
 
 		# insert car to new position
+
 		new_rect = self.getTransformedRectangle()
 		curTrack.updateGrid(new_rect, 1)
 

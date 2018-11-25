@@ -30,6 +30,7 @@ def transformRectangle(loc, v, length, width):
 		denom = 0.001
 	else:
 		denom = v[1]
+	# The negative sign is used to address the assymatry between angle and sign
 	theta = np.arctan(-v[0]/denom)
 	rect = np.array([(0, 0), (length, 0), (length, width), (0, width), (0, 0)])
 	R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
