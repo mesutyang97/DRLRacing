@@ -5,6 +5,10 @@ import numpy as np
 import math
 import utils
 
+# Python Imaging Library imports
+from PIL import Image
+from PIL import ImageDraw
+
 # Position: not location, but where you
 # tInput: throttle input
 # sInput: steering input: -1: left. +1: right
@@ -103,10 +107,12 @@ class Track:
 		half_width = utils.ftToMm(finish_line[2]/2)
 		# Board is horizontal, or, aligned with length
 		if endpoint_A_y == endpoint_B_y:
-			self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] = -2 * np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
+			self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] \
+			= -2 * np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
 		# Board is vertical, or, aligned with width
 		elif endpoint_A_x == endpoint_B_x:
-			self._grid[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] = -2 * np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
+			self._grid[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] \
+			= -2 * np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
 		# No support of diagonal board yet
 		else:
 			print("Error: do not support diagonal board")
@@ -119,7 +125,7 @@ class Track:
 	# carInitS: the initial state of the car initialized
 	def initializeCar(self, carInitS):
 		init_rect = carInitS.getTransformedRectangle()
-		updateGrid(init_rect, 1)
+		self.updateGrid(init_rect, 1)
 		return None
 
 
@@ -148,8 +154,10 @@ class Car:
 
 
 class CarState:
-	def __init__(self, startLocation, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, isLinear = True):
-		self._location = startLocation
+	def __init__(self, startLocation_ft, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, isLinear = True):
+		startLocation_x = utils.ftToMm(startLocation_ft[0])
+		startLocation_y = utils.ftToMm(startLocation_ft[1])
+		self._location = [startLocation_y, startLocation_x]
 		self._velocity = startVelocity
 		self._rank = startRanking
 		self._mass = mass
@@ -157,7 +165,7 @@ class CarState:
 		self._steering = Steering(maxTurningAngle)
 		self._throttle = Throttle(drag, topSpeed, isLinear)
 		self._length = length
-		# self._cornerDist = np.norm([length, width])
+		self._width = width
 
 		self._startCrossing = False
 		# own clock
@@ -176,31 +184,34 @@ class CarState:
 		return self._width
 
 	def checkCollison(self, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
-		headPosition = nextVelocity_unit * (self._length/2) + desired_nextLocation
-		x = int(headPosition[0] * 1000)
-		y = int(headPosition[1] * 1000)
-		if curTrack.getGrid()[x][y] == 1:
+		headPosition = np.multiply(nextVelocity_unit,  (self._length/2)) + desired_nextLocation
+		x = int(headPosition[0])
+		y = int(headPosition[1])
+		if curTrack.getGrid()[y][x] == 1:
 			return 0.001 * nextVelocity_unit, self._location - COLLISONPEN* desired_nextVelocity
 		else:
 			return desired_nextVelocity, desired_nextLocation
 
 	def getReward(self, curLocation, nextLocation, nextVelocity, curTrack):
 		self._clock += 1;
-		if np.norm(nextVelocity) < 0.01:
+		if np.linalg.norm(nextVelocity) < 0.01:
 			print("collision")
 			rew = -5
 		else:
 			rew = -1
-		x_c = int(curLocation[0] * 1000)
-		y_c = int(curLocation[1] * 1000)
-		x_n = int(nextLocation[0] * 1000)
-		y_n = int(nextLocation[1] * 1000)
+		y_c = int(curLocation[0])
+		x_c = int(curLocation[1])
+		y_n = int(nextLocation[0])
+		x_n = int(nextLocation[1])
 
-		if utils.sameDirection(nextVelocity, curTrack.finish_line_dir) and curTrack.getGrid()[x_c][y_c] == 0 and curTrack.getGrid()[x_n][y_n] == -2:
+		if utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
+			and curTrack.getGrid()[y_c][x_c] == 0 and curTrack.getGrid()[y_n][x_n] == -2:
 			self._startCrossing = True
 			print("start crossing")
 			rew += 1
-		elif self._startCrossing == True and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) and curTrack.getGrid()[x_c][y_c] == -2 and curTrack.getGrid()[x_n][y_n] == 0:
+		elif self._startCrossing == True \
+		and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
+		and curTrack.getGrid()[y_c][x_c] == -2 and curTrack.getGrid()[y_n][x_n] == 0:
 			self._startCrossing = False
 			print("finish crossing")
 			rew += 1000 * 1/self._clock
@@ -216,23 +227,32 @@ class CarState:
 
 	def step(self, sInput, tInput, curTrack):
 		# The current track contains information about other car on the track
+		print("Steering Input", sInput)
+		print("Throttle Input", tInput)
 		
+		print("Current velocity: ", self._velocity)
+		print("Current next location: ", self._location)
 		
-		curSpeed = np.norm(self._velocity)
+		curSpeed = np.linalg.norm(self._velocity)
 		curVelocity_unit = self._velocity/curSpeed
 		# Assertion
-		assert np.norm(velocity_unit) == 1
+		assert np.linalg.norm(curVelocity_unit) > 0.99 and np.linalg.norm(curVelocity_unit) < 1.01
 
 		a_lim = curTrack.miu * 9.8
 		turningAngle, a_c = self._steering.getAC(curSpeed, sInput, a_lim)
+		print("turningAngle", turningAngle)
 		# This step only changed orientation, not magnitude
-		nextVelocity_unit = self._steeing.rotateVelocity(curVelocity_unit, turningAngle)
-		a_lim_t = math.sqrt(np.squre(a_lim) - np.square(a_c))
+		nextVelocity_unit = self._steering.rotateVelocity(curVelocity_unit, turningAngle)
+		a_lim_t = np.sqrt(np.square(a_lim) - np.square(a_c))
 		nextSpeed = self._throttle.getNewSpeed(curSpeed, tInput, a_lim_t)
-		desired_nextVelocity = nextSpeed * nextVelocity_unit
-		desired_nextLocation = self._location + self._velocity * STEPT
+		desired_nextVelocity = np.multiply(nextSpeed, nextVelocity_unit)
+		# The 1000 is to convert m/s to mm/s
+		desired_nextLocation = self._location + np.multiply(STEPT * 1000, self._velocity)
+
+		print("Desired velocity: ", desired_nextVelocity)
+		print("Desired next Location: ", desired_nextLocation)
 		# 1: check collision
-		nextVelocity, nextLocation = checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation)
+		nextVelocity, nextLocation = self.checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack)
 		# 1. check reward for crossing the finish line
 		rew = self.getReward(self._location, nextLocation, nextVelocity, curTrack)
 
@@ -242,6 +262,9 @@ class CarState:
 
 		self._velocity = nextVelocity
 		self._location = nextLocation
+
+		print("Actual velocity: ", nextVelocity)
+		print("Actual next location: ", nextLocation)
 
 		# insert car to new position
 		new_rect = self.getTransformedRectangle()
@@ -256,6 +279,8 @@ class Steering:
 
 	def getAC(self, curSpeed, sInput, a_lim):
 		assert(sInput <= 1.0 and sInput >= -1.0)
+		# FIXME: hack to make the thing goes right
+		sInput = - sInput
 		# Get the centripital component of acceleration
 		assumedTravel = curSpeed * STEPT
 		turningAngle = sInput * self._maxAngle
@@ -294,7 +319,6 @@ class Steering:
 class Throttle:
 	def __init__(self, drag, topSpeed, isLinear = True):
 		self._drag = drag
-		self._lim_a = lim_a
 		self._topSpeed = topSpeed
 		self._isLinear = isLinear
 

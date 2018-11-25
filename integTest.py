@@ -1,7 +1,11 @@
 # integral testing
 
+
 from track import *
 from controller import *
+import numpy as np
+import random
+import matplotlib.pyplot as plt
 
 def setup(numCars):
 	dt_lst = [((15, 15), 3), ((15, 45), 3)]
@@ -11,7 +15,7 @@ def setup(numCars):
 
 
 	# First car
-	startLocation = (5, 10)
+	poleLocation = (5, 10)
 	startVelocity = (0, 0.00001)
 	
 	#1.35 kg
@@ -21,7 +25,7 @@ def setup(numCars):
 	drag = 0
 
 	# 2 m/s
-	topSpeed = 2
+	topSpeed = 3
 
 	# 20 degrees
 	maxTurningAngle = 20
@@ -35,32 +39,37 @@ def setup(numCars):
 	controller_lst = []
 
 	for i in range(numCars):
+		startLocation = np.subtract(poleLocation, (0, 0.5))
 
-		carState_i = CarState(startLocation - i * (0, 0.5), startVelocity, i + 1, mass, drag, topSpeed, maxTurningAngle, length, width, True)
+		carState_i = CarState(startLocation, startVelocity, i + 1, mass, drag, topSpeed, maxTurningAngle, length, width, True)
 		car_i = Car(carState_i, i + 1, length, width)
 
 		track.initializeCar(carState_i)
 		controller_i = Controller(track, car_i)
 		controller_lst.append(controller_i)
 
-	
+	g = track.getGrid()
+	print(g.shape)
+	plt.imshow(g, cmap='gray')
+	plt.show()
 
-	return controller_lst
+	return track, controller_lst
 
 
 
 
 
-ctrl_lst = setup()
+t, ctrl_lst = setup(1)
 
 maxStep = 10
 
-for i in range(maxStep)
+for i in range(maxStep):
+	for ctrl in ctrl_lst:
+		rd = random.uniform(-0.2, 0.2)
+		ctrl.step((rd, 1.0))
+	g = t.getGrid()
+	print(g.shape)
+	plt.imshow(g, cmap='gray')
+	plt.show()
 
 
-
-
-
-
-
-setup()

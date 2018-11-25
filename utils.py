@@ -14,7 +14,7 @@ def rotateVector(v, dtheta):
 	old_theta = np.arctan(v[0]/denom)
 
 	new_theta = old_theta + math.radians(dtheta)
-	return (math.cos(new_theta), math.sin(new_theta))
+	return (np.sin(new_theta), np.cos(new_theta))
 
 
 def ftToMm(lengthInFeet):
@@ -30,10 +30,10 @@ def transformRectangle(loc, v, length, width):
 		denom = 0.001
 	else:
 		denom = v[1]
-	theta = np.arctan(v[0]/denom)
+	theta = np.arctan(-v[0]/denom)
 	rect = np.array([(0, 0), (length, 0), (length, width), (0, width), (0, 0)])
 	R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-	x, y = np.array(loc) - np.dot(np.array([length/2, width/2]), R) 
+	y, x = np.array(loc) - np.dot(np.array([length/2, width/2]), R) 
 	offset = np.array([x, y])
 	transformed_rect = np.dot(rect, R) + offset
 	return transformed_rect

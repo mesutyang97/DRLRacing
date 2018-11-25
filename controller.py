@@ -7,3 +7,9 @@ class Controller:
 	def __init__(self, track, car):
 		self._track = track
 		self._car = car
+
+	def getObservation(self):
+		return None
+
+	def step(self, ac):
+		self._car.getCarState().step(ac[0], ac[1], self._track)
