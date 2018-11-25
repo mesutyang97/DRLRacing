@@ -32,9 +32,9 @@ def transformRectangle(loc, v, length, width):
 		denom = v[1]
 	# The negative sign is used to address the assymatry between angle and sign
 	theta = np.arctan(-v[0]/denom)
-	rect = np.array([(0, 0), (length, 0), (length, width), (0, width), (0, 0)])
+	rect = np.array([(-length/2, -width/2), (length/2, -width/2), (length/2, width/2), (-length/2, width/2), (-length/2, -width/2)])
 	R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-	y, x = np.array(loc) - np.dot(np.array([length/2, width/2]), R) 
+	y, x = np.array(loc) 
 	offset = np.array([x, y])
 	transformed_rect = np.dot(rect, R) + offset
 	return transformed_rect

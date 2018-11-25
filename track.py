@@ -21,12 +21,15 @@ class Track:
 	def __init__(self, miu, dot_miu, w_feet, l_feet, board_lst, dot_lst, finish_line):
 		# Friction
 		self.miu = miu
-		w = utils.ftToMm(w_feet)
-		l = utils.ftToMm(l_feet)
-		self._grid = self.initializeGrid(w, l, 500)
-		self.buildDots(dot_lst, w, l)
-		self.buildBoards(board_lst)
+		self._trackw = utils.ftToMm(w_feet)
+		self._trackl = utils.ftToMm(l_feet)
+		self._grid = self.initializeGrid(self._trackw, self._trackl, 500)
+		self._dot_lst = dot_lst
+		self._finish_line = finish_line
+		self._board_lst = board_lst
+		self.buildDots(dot_lst, self._trackw, self._trackl)
 		self.buildFinishLine(finish_line)
+		self.buildBoards(board_lst)
 		self.carDict = {}
 
 
@@ -56,8 +59,10 @@ class Track:
 			endpoint_B_y_ft, endpoint_B_x_ft = board[1]
 			endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
 			endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
+			'''
 			assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
 			assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
+			'''
 
 			half_width = utils.ftToMm(board[2]/2)
 			# Board is horizontal, or, aligned with length
@@ -66,15 +71,22 @@ class Track:
 			# Board is vertical, or, aligned with width
 			elif endpoint_A_x == endpoint_B_x:
 				self._grid[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] = np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
-			# No support of diagonal board yet
+			# Supporting diagonal board
 			else:
-				print("Error: do not support diagonal board")
+				midpoint_y = int((endpoint_A_y + endpoint_B_y)/2)
+				midpoint_x = int((endpoint_A_x + endpoint_B_x)/2)
+				v = np.subtract((endpoint_B_y, endpoint_B_x), (endpoint_A_y, endpoint_A_x))
+				length = np.linalg.norm(v)
+				width = half_width * 2
+				board = utils.transformRectangle((midpoint_y, midpoint_x), v, length, width)
+				self.updateGrid(board, 1)
 
 	'''
 	The dot_lst will be a list of form
 	((y,x), radius), in feets
 	'''
 	def buildDots(self, dot_lst, w, l):
+		temp_g = self._grid.copy()
 		for dot in dot_lst:
 			y_ft, x_ft = dot[0]
 			y = utils.ftToMm(y_ft)
@@ -86,7 +98,8 @@ class Track:
 			a,b = np.ogrid[-y:w-y, -x:l-x]
 			mask = a*a + b*b <= r*r
 
-			self._grid[mask] = -1
+			temp_g[mask] = -1
+		self._grid = temp_g
 	
 
 	'''
@@ -119,6 +132,12 @@ class Track:
 
 		#Finish line direction
 		self.finish_line_dir = np.array(finish_line[3])
+
+
+	def rebuildTrack(self):
+		self.buildDots(self._dot_lst, self._trackw, self._trackl)
+		self.buildFinishLine(self._finish_line)
+		self.buildBoards(self._board_lst)
 
 
 	# Initialize the grid in the beginning
@@ -198,7 +217,7 @@ class CarState:
 	def getReward(self, curLocation, nextLocation, nextVelocity, curTrack):
 		self._clock += 1;
 		if np.linalg.norm(nextVelocity) == 0.0001:
-			print("collision")
+			print("---collision at", curLocation)
 			rew = -5
 		else:
 			rew = -1
@@ -219,6 +238,7 @@ class CarState:
 			print("finish crossing")
 			rew += 1000 * 1/self._clock
 			self._clock = 0
+		print("reward: ", rew)
 		return rew
 
 	'''
@@ -230,12 +250,15 @@ class CarState:
 
 	def step(self, sInput, tInput, curTrack):
 		# The current track contains information about other car on the track
+		
 		print("===========")
 		print("Steering Input", sInput)
+		print("Current location: ", self._location)
+		'''
 		print("Throttle Input", tInput)
-		
 		print("Current velocity: ", self._velocity)
-		print("Current next location: ", self._location)
+		
+		'''
 		
 		curSpeed = np.linalg.norm(self._velocity)
 		curVelocity_unit = self._velocity/curSpeed
@@ -244,7 +267,7 @@ class CarState:
 
 		a_lim = curTrack.miu * 9.8
 		turningAngle, a_c = self._steering.getAC(curSpeed, sInput, a_lim)
-		print("turningAngle", turningAngle)
+
 		# This step only changed orientation, not magnitude
 		nextVelocity_unit = self._steering.rotateVelocity(curVelocity_unit, turningAngle)
 		a_lim_t = np.sqrt(np.square(a_lim) - np.square(a_c))
@@ -253,8 +276,6 @@ class CarState:
 		# The 1000 is to convert m/s to mm/s
 		desired_nextLocation = self._location + np.multiply(STEPT * 1000, self._velocity)
 
-		print("Desired velocity: ", desired_nextVelocity)
-		print("Desired next Location: ", desired_nextLocation)
 		# 1: check collision
 		nextVelocity, nextLocation = self.checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack)
 		# 1. check reward for crossing the finish line
@@ -267,8 +288,7 @@ class CarState:
 		self._velocity = nextVelocity
 		self._location = nextLocation
 
-		print("Actual velocity: ", nextVelocity)
-		print("Actual next location: ", nextLocation)
+
 
 		# insert car to new position
 

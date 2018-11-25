@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 def setup(numCars):
 	dt_lst = [((10, 10), 3), ((10, 30), 3)]
-	bd_lst = [((10, 10), (10, 30), 6)]
+	bd_lst = [((10, 10), (10, 30), 6), ((7, 0.8), (0.8, 7), 2.5), ((7, 39.2), (0.8, 33), 2.5), ((13, 39.2), (19.8, 33), 2.5), ((13, 0.8), (19.8, 7), 2.5)]
 	fl = ((0, 20), (7, 20), 3, (0, 1))
 	track = Track(0.8, 0.3, 20, 40, bd_lst, dt_lst, fl)
 
@@ -61,17 +61,20 @@ def setup(numCars):
 
 t, ctrl_lst = setup(1)
 
-maxStep = 100
+maxStep = 400
 
 for i in range(maxStep):
 	for ctrl in ctrl_lst:
 		rd = random.uniform(-0.8, 0.8)
 		ctrl.step((rd, 1.0))
+	if i % 5 == 0:
+		t.rebuildTrack()
 
-	if i % 10 == 0:
+	if i % 20 == 0:
 		g = t.getGrid()
 		print(g.shape)
 		plt.imshow(g, cmap='gray')
 		plt.show()
+		print("showed")
 
 
