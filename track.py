@@ -23,6 +23,7 @@ class Track:
 		self.buildDots(dot_lst, w, l)
 		self.buildBoards(board_lst)
 		self.buildFinishLine(finish_line)
+		self.carDict = {}
 
 
 	'''
@@ -86,7 +87,7 @@ class Track:
 
 	'''
 	The finish line will be in the form of
-	((endpoint_A_y, endpoint_A_x), (endpoint_B_y, endpoint_B_x), width)
+	((endpoint_A_y, endpoint_A_x), (endpoint_B_y, endpoint_B_x), width, (finish_line_dir_vec))
 	'''
 	def buildFinishLine(self, finish_line):
 		endpoint_A_y_ft, endpoint_A_x_ft = finish_line[0]
@@ -110,16 +111,39 @@ class Track:
 		else:
 			print("Error: do not support diagonal board")
 
+		#Finish line direction
+		self.finish_line_dir = np.array(finish_line[3])
+
+
+	# Initialize the grid in the beginning
+	# carInitS: the initial state of the car initialized
+	def initializeCar(self, carInitS):
+		init_rect = carInitS.getTransformedRectangle()
+		updateGrid(init_rect, 1)
+		return None
+
+
+	def updateGrid(self, transformed_rect, filling):
+		img = Image.fromarray(self._grid)
+		draw = ImageDraw.Draw(img)
+		draw.polygon([tuple(p) for p in transformed_rect], fill=filling)
+		self._grid = np.asarray(img)
+
 
 	def getGrid(self):
 		return self._grid
 
 
+
+
 class Car:
-	def __init__(self, startingState, carNumber, startingRanking, mass, length, width):
+	def __init__(self, startingState, carNumber, length, width):
+		self._state = startingState
 		self.carNumber = carNumber
-		self._mass = mass
-		self.a = a
+		self.length = length
+		self.width = width
+	def getCarState(self):
+		return self._state
 
 
 
@@ -135,21 +159,59 @@ class CarState:
 		self._length = length
 		# self._cornerDist = np.norm([length, width])
 
+		self._startCrossing = False
+		# own clock
+		self._clock = 0
+
 	def getLocation(self):
 		return self._location
 
 	def getVelocity(self):
 		return self._velocity
 
+	def getLength(self):
+		return self._length
+
+	def getWidth(self):
+		return self._width
+
 	def checkCollison(self, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
-		headPosition = nextVelocity_unit * (self._length/2)
-		x = int(headPosition[0])
-		y = int(headPosition[1])
-		if curTrack.grid[x][y]:
-			return (0, 0), self._location - COLLISONPEN* desired_nextVelocity
+		headPosition = nextVelocity_unit * (self._length/2) + desired_nextLocation
+		x = int(headPosition[0] * 1000)
+		y = int(headPosition[1] * 1000)
+		if curTrack.getGrid()[x][y] == 1:
+			return 0.001 * nextVelocity_unit, self._location - COLLISONPEN* desired_nextVelocity
 		else:
 			return desired_nextVelocity, desired_nextLocation
 
+	def getReward(self, curLocation, nextLocation, nextVelocity, curTrack):
+		self._clock += 1;
+		if np.norm(nextVelocity) < 0.01:
+			print("collision")
+			rew = -5
+		else:
+			rew = -1
+		x_c = int(curLocation[0] * 1000)
+		y_c = int(curLocation[1] * 1000)
+		x_n = int(nextLocation[0] * 1000)
+		y_n = int(nextLocation[1] * 1000)
+
+		if utils.sameDirection(nextVelocity, curTrack.finish_line_dir) and curTrack.getGrid()[x_c][y_c] == 0 and curTrack.getGrid()[x_n][y_n] == -2:
+			self._startCrossing = True
+			print("start crossing")
+			rew += 1
+		elif self._startCrossing == True and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) and curTrack.getGrid()[x_c][y_c] == -2 and curTrack.getGrid()[x_n][y_n] == 0:
+			self._startCrossing = False
+			print("finish crossing")
+			rew += 1000 * 1/self._clock
+			self._clock = 0
+		return rew
+
+	'''
+	This is for the filling the grid in the game
+	'''
+	def getTransformedRectangle(self):
+		return utils.transformRectangle(self._location, self._velocity, self._length, self._width)
 
 
 	def step(self, sInput, tInput, curTrack):
@@ -169,7 +231,23 @@ class CarState:
 		nextSpeed = self._throttle.getNewSpeed(curSpeed, tInput, a_lim_t)
 		desired_nextVelocity = nextSpeed * nextVelocity_unit
 		desired_nextLocation = self._location + self._velocity * STEPT
-		self._velocity, self._location = checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation)
+		# 1: check collision
+		nextVelocity, nextLocation = checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation)
+		# 1. check reward for crossing the finish line
+		rew = self.getReward(self._location, nextLocation, nextVelocity, curTrack)
+
+		# remove the car from old position
+		old_rect = self.getTransformedRectangle()
+		curTrack.updateGrid(old_rect, 0)
+
+		self._velocity = nextVelocity
+		self._location = nextLocation
+
+		# insert car to new position
+		new_rect = self.getTransformedRectangle()
+		curTrack.updateGrid(new_rect, 1)
+
+
 
 
 class Steering:
