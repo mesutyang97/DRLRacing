@@ -9,6 +9,9 @@ import utils
 from PIL import Image
 from PIL import ImageDraw
 
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
 # Position: not location, but where you
 # tInput: throttle input
 # sInput: steering input: -1: left. +1: right
@@ -173,7 +176,7 @@ class Car:
 
 
 class CarState:
-	def __init__(self, startLocation_ft, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, isLinear = True):
+	def __init__(self, startLocation_ft, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, env_window_w = 500, obs_window_w = 10, isLinear = True):
 		startLocation_y = utils.ftToMm(startLocation_ft[0])
 		startLocation_x = utils.ftToMm(startLocation_ft[1])
 		self._location = [startLocation_y, startLocation_x]
@@ -185,6 +188,8 @@ class CarState:
 		self._throttle = Throttle(drag, topSpeed, isLinear)
 		self._length = length
 		self._width = width
+		self._env_window_w = env_window_w
+		self._obs_window_w = obs_window_w
 		self._recover = False
 
 		self._startCrossing = False
@@ -203,11 +208,12 @@ class CarState:
 	def getWidth(self):
 		return self._width
 
-	def checkCollison(self, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
+	def checkCollison(self, nextSpeed, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
 		headPosition = np.multiply(nextVelocity_unit,  (self._length/2)) + desired_nextLocation
 		y = int(headPosition[0])
 		x = int(headPosition[1])
-		if not self._recover and curTrack.getGrid()[y][x] == 1:
+		print("next Speed", nextSpeed)
+		if not self._recover and curTrack.getGrid()[y][x] == 1 and nextSpeed > 0.9:
 			self._recover = True
 			return np.multiply(0.0001, nextVelocity_unit), self._location - np.multiply(COLLISONPEN, desired_nextVelocity)
 		else:
@@ -277,7 +283,7 @@ class CarState:
 		desired_nextLocation = self._location + np.multiply(STEPT * 1000, self._velocity)
 
 		# 1: check collision
-		nextVelocity, nextLocation = self.checkCollison(nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack)
+		nextVelocity, nextLocation = self.checkCollison(nextSpeed, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack)
 		# 1. check reward for crossing the finish line
 		rew = self.getReward(self._location, nextLocation, nextVelocity, curTrack)
 
@@ -294,6 +300,34 @@ class CarState:
 
 		new_rect = self.getTransformedRectangle()
 		curTrack.updateGrid(new_rect, 1)
+
+		# Get the observation
+		# Direction of the car
+		v_unit = self._velocity/np.linalg.norm(self._velocity)
+		print("vu", v_unit)
+		rotated_v_unit = utils.rotateVector(v_unit, 90)
+		print("rotatedvu", rotated_v_unit)
+		print("self location", self._location)
+		new_head = self._location + np.multiply(v_unit, self._length/2)
+		print("new_head", new_head)
+		print("self._env_window_w", self._env_window_w)
+		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
+		print("corner", corner)
+
+		corner_reorder = (corner[1], corner[0])
+
+		theta = utils.getAngle(v_unit) * 180/math.pi
+		print("theta", theta)
+
+		fig,ax = plt.subplots(1)
+		g = curTrack.getGrid()
+		ax.imshow(g, cmap='gray')
+
+		rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
+		ax.add_patch(rect)
+		print("going to show here")
+		plt.show()
+		print("finish showing")
 
 
 

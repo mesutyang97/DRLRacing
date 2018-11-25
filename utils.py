@@ -3,6 +3,14 @@
 import math
 import numpy as np
 
+def getAngle(v):
+	if v[1] == 0:
+		denom = 0.001
+	else:
+		denom = v[1]
+	theta = np.arctan(v[0]/denom)
+	return theta
+
 def rotateVector(v, dtheta):
 	old_theta = 0
 	if v[1] == 0:
@@ -25,13 +33,8 @@ def sameDirection(v1, v2):
 
 
 def transformRectangle(loc, v, length, width):
-
-	if v[1] == 0:
-		denom = 0.001
-	else:
-		denom = v[1]
 	# The negative sign is used to address the assymatry between angle and sign
-	theta = np.arctan(-v[0]/denom)
+	theta = -getAngle(v)
 	rect = np.array([(-length/2, -width/2), (length/2, -width/2), (length/2, width/2), (-length/2, width/2), (-length/2, -width/2)])
 	R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
 	y, x = np.array(loc) 
