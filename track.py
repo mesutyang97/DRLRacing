@@ -4,6 +4,7 @@
 import numpy as np
 import math
 import utils
+import cv2
 
 # Python Imaging Library imports
 from PIL import Image
@@ -312,7 +313,33 @@ class CarState:
 		print("new_head", new_head)
 		print("self._env_window_w", self._env_window_w)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
-		print("corner", corner)
+		corner_1 = corner + np.multiply(v_unit, self._env_window_w)
+		corner_2 = corner_1 + np.multiply(rotated_v_unit, self._env_window_w)
+		corner_3 = corner_2 - np.multiply(v_unit, self._env_window_w)
+
+		pts_src = np.zeros((4, 2))
+
+		# Courtesy to https://www.learnopencv.com/homography-examples-using-opencv-python-c/
+		corners = np.array([corner, corner_1, corner_2, corner_3])
+		print("corners")
+		print(corners)
+		pts_src[:,0] = corners[:,1]
+		pts_src[:,1] = corners[:,0]
+		print("pts_src")
+		print(pts_src)
+
+
+		pts_src
+		pts_dst = np.array([[0, 0],[self._obs_window_w, 0], [self._obs_window_w, self._obs_window_w], [0, self._obs_window_w]])
+
+		# Calculate Homography
+		h, status = cv2.findHomography(pts_src, pts_dst)
+
+		im_dst = cv2.warpPerspective(curTrack.getGrid(), h, (self._obs_window_w, self._obs_window_w))
+		print(im_dst)
+
+		plt.imsave("obs_images/1.png", im_dst, cmap = 'gray')
+
 
 		corner_reorder = (corner[1], corner[0])
 
@@ -328,6 +355,8 @@ class CarState:
 		print("going to show here")
 		plt.show()
 		print("finish showing")
+
+		return 
 
 
 
