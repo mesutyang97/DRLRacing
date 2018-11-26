@@ -67,7 +67,7 @@ maxStep = 10
 for i in range(maxStep):
 	for ctrl in ctrl_lst:
 		rd = random.uniform(-0.8, 0.8)
-		ctrl.step((rd, 1.0))
+		ctrl.step((rd, 1.0), i)
 	if i % 5 == 0:
 		t.rebuildTrack()
 

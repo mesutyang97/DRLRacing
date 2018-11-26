@@ -228,19 +228,20 @@ class CarState:
 			rew = -5
 		else:
 			rew = -1
+
 		y_c = int(curLocation[0])
 		x_c = int(curLocation[1])
 		y_n = int(nextLocation[0])
 		x_n = int(nextLocation[1])
 
-		if utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
-			and curTrack.getGrid()[y_c][x_c] == 0 and curTrack.getGrid()[y_n][x_n] == -2:
+		if (self._startCrossing == False) and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
+			and curTrack.getGrid()[y_n][x_n] == -2:
 			self._startCrossing = True
 			print("start crossing")
 			rew += 1
-		elif self._startCrossing == True \
-		and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
-		and curTrack.getGrid()[y_c][x_c] == -2 and curTrack.getGrid()[y_n][x_n] == 0:
+		
+		elif (self._startCrossing == True) and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
+		and curTrack.getGrid()[y_n][x_n] == 0:
 			self._startCrossing = False
 			print("finish crossing")
 			rew += 1000 * 1/self._clock
@@ -255,7 +256,7 @@ class CarState:
 		return utils.transformRectangle(self._location, self._velocity, self._length, self._width)
 
 
-	def step(self, sInput, tInput, curTrack):
+	def step(self, sInput, tInput, curTrack, index = 0):
 		# The current track contains information about other car on the track
 		
 		print("===========")
@@ -305,13 +306,13 @@ class CarState:
 		# Get the observation
 		# Direction of the car
 		v_unit = self._velocity/np.linalg.norm(self._velocity)
-		print("vu", v_unit)
+		#print("vu", v_unit)
 		rotated_v_unit = utils.rotateVector(v_unit, 90)
-		print("rotatedvu", rotated_v_unit)
-		print("self location", self._location)
+		#print("rotatedvu", rotated_v_unit)
+		#print("self location", self._location)
 		new_head = self._location + np.multiply(v_unit, self._length/2)
-		print("new_head", new_head)
-		print("self._env_window_w", self._env_window_w)
+		#print("new_head", new_head)
+		#print("self._env_window_w", self._env_window_w)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
 		corner_1 = corner + np.multiply(v_unit, self._env_window_w)
 		corner_2 = corner_1 + np.multiply(rotated_v_unit, self._env_window_w)
@@ -321,12 +322,12 @@ class CarState:
 
 		# Courtesy to https://www.learnopencv.com/homography-examples-using-opencv-python-c/
 		corners = np.array([corner, corner_1, corner_2, corner_3])
-		print("corners")
-		print(corners)
+		#print("corners")
+		#print(corners)
 		pts_src[:,0] = corners[:,1]
 		pts_src[:,1] = corners[:,0]
-		print("pts_src")
-		print(pts_src)
+		#print("pts_src")
+		#print(pts_src)
 
 
 		pts_src
@@ -338,13 +339,13 @@ class CarState:
 		im_dst = cv2.warpPerspective(curTrack.getGrid(), h, (self._obs_window_w, self._obs_window_w))
 		print(im_dst)
 
-		plt.imsave("obs_images/1.png", im_dst, cmap = 'gray')
-
+		obsname = "obs_images/" + str(index) + ".png"
+		plt.imsave(obsname, im_dst, cmap = 'gray')
 
 		corner_reorder = (corner[1], corner[0])
 
 		theta = utils.getAngle(v_unit) * 180/math.pi
-		print("theta", theta)
+		#print("theta", theta)
 
 		fig,ax = plt.subplots(1)
 		g = curTrack.getGrid()
@@ -352,9 +353,10 @@ class CarState:
 
 		rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
 		ax.add_patch(rect)
-		print("going to show here")
-		plt.show()
-		print("finish showing")
+
+		gridname = "grid_images/" + str(index) + ".png"
+		plt.savefig(gridname, cmap = 'gray')
+
 
 		return 
 
