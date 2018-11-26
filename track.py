@@ -17,12 +17,27 @@ import matplotlib.patches as patches
 # tInput: throttle input
 # sInput: steering input: -1: left. +1: right
 
+
+RECORD = True
+
 STEPT = 0.1
 
 COLLISONPEN = 3.0
 
+
+# Here are some default parameters for a oval track
+w_ft = 20
+l_ft = 40
+bd_lst = [((10, 10), (10, 30), 6), ((7, 0.8), (0.8, 7), 2.5), ((7, 39.2), (0.8, 33), 2.5), ((13, 39.2), (19.8, 33), 2.5), ((13, 0.8), (19.8, 7), 2.5)]
+dt_lst = [((10, 10), 3), ((10, 30), 3)]
+fl = ((0, 20), (7, 20), 3, (0, 1))
+
+
+poleLocation = (7, 8)
+sVelocity = (0, 0.00001)
+
 class Track:
-	def __init__(self, miu, dot_miu, w_feet, l_feet, board_lst, dot_lst, finish_line):
+	def __init__(self, miu, dot_miu, w_feet = w_ft, l_feet = l_ft, board_lst = bd_lst, dot_lst = dt_lst, finish_line = fl):
 		# Friction
 		self.miu = miu
 		self._trackw = utils.ftToMm(w_feet)
@@ -125,11 +140,11 @@ class Track:
 		# Board is horizontal, or, aligned with length
 		if endpoint_A_y == endpoint_B_y:
 			self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] \
-			= -2 * np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
+			= -0.1 * np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
 		# Board is vertical, or, aligned with width
 		elif endpoint_A_x == endpoint_B_x:
 			self._grid[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] \
-			= -2 * np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
+			= -0.1 * np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
 		# No support of diagonal board yet
 		else:
 			print("Error: do not support diagonal board")
@@ -166,7 +181,7 @@ class Track:
 
 
 class Car:
-	def __init__(self, startingState, carNumber, length, width):
+	def __init__(self, startingState, carNumber, length = 400, width = 190):
 		self._state = startingState
 		self.carNumber = carNumber
 		self.length = length
@@ -177,11 +192,11 @@ class Car:
 
 
 class CarState:
-	def __init__(self, startLocation_ft, startVelocity, startRanking, mass, drag, topSpeed, maxTurningAngle, length, width, env_window_w = 500, obs_window_w = 10, isLinear = True):
+	def __init__(self, startLocation_ft, startRanking = 1, startVelocity = sVelocity, mass=1.35, drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 500, obs_window_w = 10, isLinear = True, max_total_T = 200):
 		startLocation_y = utils.ftToMm(startLocation_ft[0])
 		startLocation_x = utils.ftToMm(startLocation_ft[1])
-		self._location = [startLocation_y, startLocation_x]
-		self._velocity = startVelocity
+		self._location = np.array([startLocation_y, startLocation_x])
+		self._velocity = np.array(startVelocity)
 		self._rank = startRanking
 		self._mass = mass
 		self._drag = drag
@@ -197,6 +212,12 @@ class CarState:
 		# own clock
 		self._clock = 0
 
+		self._total_T = 0
+		self._max_total_T = max_total_T
+
+
+		self._collision_buff = np.zeros(10)
+
 	def getLocation(self):
 		return self._location
 
@@ -210,15 +231,20 @@ class CarState:
 		return self._width
 
 	def checkCollison(self, nextSpeed, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack):
+		# Move collision buffer by 1
+		self._collision_buff[0:9] = self._collision_buff[1:10]
 		headPosition = np.multiply(nextVelocity_unit,  (self._length/2)) + desired_nextLocation
 		y = int(headPosition[0])
 		x = int(headPosition[1])
 		print("next Speed", nextSpeed)
 		if not self._recover and curTrack.getGrid()[y][x] == 1 and nextSpeed > 0.9:
 			self._recover = True
+			self._collision_buff[9] = 1
+			print("collision buffer: ", self._collision_buff)
 			return np.multiply(0.0001, nextVelocity_unit), self._location - np.multiply(COLLISONPEN, desired_nextVelocity)
 		else:
 			self._recover = False
+			self._collision_buff[9] = 0
 			return desired_nextVelocity, desired_nextLocation
 
 	def getReward(self, curLocation, nextLocation, nextVelocity, curTrack):
@@ -235,7 +261,7 @@ class CarState:
 		x_n = int(nextLocation[1])
 
 		if (self._startCrossing == False) and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
-			and curTrack.getGrid()[y_n][x_n] == -2:
+			and curTrack.getGrid()[y_n][x_n] == -0.1:
 			self._startCrossing = True
 			print("start crossing")
 			rew += 1
@@ -262,9 +288,9 @@ class CarState:
 		print("===========")
 		print("Steering Input", sInput)
 		print("Current location: ", self._location)
+		print("Current velocity: ", self._velocity)
 		'''
 		print("Throttle Input", tInput)
-		print("Current velocity: ", self._velocity)
 		
 		'''
 		
@@ -296,10 +322,9 @@ class CarState:
 		self._velocity = nextVelocity
 		self._location = nextLocation
 
-
+		# ========================
 
 		# insert car to new position
-
 		new_rect = self.getTransformedRectangle()
 		curTrack.updateGrid(new_rect, 1)
 
@@ -329,18 +354,18 @@ class CarState:
 		#print("pts_src")
 		#print(pts_src)
 
-
-		pts_src
 		pts_dst = np.array([[0, 0],[self._obs_window_w, 0], [self._obs_window_w, self._obs_window_w], [0, self._obs_window_w]])
 
 		# Calculate Homography
 		h, status = cv2.findHomography(pts_src, pts_dst)
 
 		im_dst = cv2.warpPerspective(curTrack.getGrid(), h, (self._obs_window_w, self._obs_window_w))
-		print(im_dst)
+		# print(im_dst)
 
-		obsname = "obs_images/" + str(index) + ".png"
-		plt.imsave(obsname, im_dst, cmap = 'gray')
+		if RECORD:
+			obsname = "obs_images/" + str(index) + ".png"
+			plt.imsave(obsname, im_dst, cmap = 'gray')
+			plt.close()
 
 		corner_reorder = (corner[1], corner[0])
 
@@ -354,11 +379,21 @@ class CarState:
 		rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
 		ax.add_patch(rect)
 
-		gridname = "grid_images/" + str(index) + ".png"
-		plt.savefig(gridname, cmap = 'gray')
+		if RECORD:
+			gridname = "grid_images/" + str(index) + ".png"
+			plt.savefig(gridname, cmap = 'gray')
+			plt.close()
 
+		# Put observation together
+		sensor_flatten = np.array(im_dst).flatten()
+		physical_flatten = np.array([self._location, self._velocity]).flatten()
+		ob = np.concatenate((sensor_flatten, physical_flatten), axis = 0)
 
-		return 
+		self._total_T += 1
+		print("sum of cb", np.sum(self._collision_buff))
+		done = (self._total_T > self._max_total_T) or np.sum(self._collision_buff) > 3
+		print("remote side done: ", done)
+		return ob, rew, done, dict()
 
 
 

@@ -12,5 +12,5 @@ class Controller:
 		return None
 
 	def step(self, ac, i = 0):
-		print("steped")
-		self._car.getCarState().step(ac[0], ac[1], self._track, i)
+		print("steped", i)
+		return self._car.getCarState().step(ac[0], ac[1], self._track, i)

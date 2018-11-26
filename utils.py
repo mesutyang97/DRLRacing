@@ -9,17 +9,13 @@ def getAngle(v):
 	else:
 		denom = v[1]
 	theta = np.arctan(v[0]/denom)
+	if v[1] < 0:
+		theta += math.pi
+
 	return theta
 
 def rotateVector(v, dtheta):
-	old_theta = 0
-	if v[1] == 0:
-		# ugly fix
-		denom = 0.001
-	else:
-		denom = v[1]
-		
-	old_theta = np.arctan(v[0]/denom)
+	old_theta = getAngle(v)
 
 	new_theta = old_theta + math.radians(dtheta)
 	return (np.sin(new_theta), np.cos(new_theta))
