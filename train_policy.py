@@ -256,6 +256,9 @@ class Agent(object):
         sy_sampled_ac = sy_mean + tf.exp(sy_logstd) * tf.random_normal(tf.shape(sy_mean), 0, 1)
         # Have to clip here
         sy_sampled_ac = tf.clip_by_value(sy_sampled_ac, clip_value_min = -1.0, clip_value_max = 1.0)
+        sIn, tIn = tf.split(sy_sampled_ac, 2, axis=1)
+        tIn = tf.clip_by_value(tIn, clip_value_min = 0.8, clip_value_max = 1.0)
+        sy_sampled_ac = tf.concat([sIn, tIn], axis=1)
         return sy_sampled_ac
 
     def get_log_prob(self, policy_parameters, sy_ac_na):
@@ -340,6 +343,7 @@ class Agent(object):
         while True:
             animate_this_episode=(len(stats)==0 and (itr % 10 == 0) and self.animate)
             steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation)
+            print("+++ finish sampling 1 trajectory")
             stats += s
             timesteps_this_batch += steps
             if timesteps_this_batch > min_timesteps:
@@ -409,8 +413,6 @@ class Agent(object):
             # YOUR CODE HERE
             ac = self.sess.run(self.sy_sampled_ac, feed_dict = {self.sy_ob_no : in_[None], self.sy_hidden: hidden[0][None]})
 
-            print("ac shape", ac.shape)
-
 
             # step the environment
             # YOUR CODE HERE
@@ -425,15 +427,14 @@ class Agent(object):
 
             meta_obs[steps] = np.concatenate((np.copy(ob).flatten(), ac.flatten(), rewdone))
 
-
             rewards.append(rew)
             steps += 1
 
             # add sample to replay buffer
             if is_evaluation:
-                self.val_replay_buffer.add_sample(in_, ac, rew, done, hidden, env._goal)
+                self.val_replay_buffer.add_sample(in_, ac, rew, done, hidden)
             else:
-                self.replay_buffer.add_sample(in_, ac, rew, done, hidden, env._goal)
+                self.replay_buffer.add_sample(in_, ac, rew, done, hidden)
 
             # start new episode
             if done:
@@ -808,14 +809,14 @@ def main():
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--n_iter', '-n', type=int, default=100)
     parser.add_argument('--batch_size', '-pb', type=int, default=1)
-    parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=200)
+    parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=100)
 
     parser.add_argument('--mini_batch_size', '-mpb', type=int, default=1)
     parser.add_argument('--num_cars', '-nc', type=int, default=1)
     parser.add_argument('--miu', type=float, default=0.8)
     parser.add_argument('--dot_miu', type=float, default=0.3)
 
-    parser.add_argument('--ep_len', '-ep', type=int, default=20)
+    parser.add_argument('--ep_len', '-ep', type=int, default=30)
     parser.add_argument('--learning_rate', '-lr', type=float, default=5e-4)
     parser.add_argument('--num_value_iters', '-nvu', type=int, default=1)
     parser.add_argument('--dont_normalize_advantages', '-dna', action='store_true')

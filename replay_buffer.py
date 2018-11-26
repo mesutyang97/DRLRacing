@@ -32,7 +32,6 @@ class ReplayBuffer(object):
         self._rewards = np.zeros((self.max_size, 1))
         self._terminals = np.zeros((self.max_size, 1))
         self._hiddens = np.zeros((self.max_size, self.hidden_dim))
-        self._tasks = np.zeros((self.max_size, self.task_dim))
         self._top = 0
         self._size = 0
 
@@ -45,7 +44,7 @@ class ReplayBuffer(object):
         if self._size < self.max_size:
             self._size += 1
 
-    def add_sample(self, ob, ac, re, te, hi, task):
+    def add_sample(self, ob, ac, re, te, hi):
         '''
         add sample to buffer
         '''
@@ -54,7 +53,6 @@ class ReplayBuffer(object):
         self._rewards[self._top] = re
         self._terminals[self._top] = te
         self._hiddens[self._top] = hi
-        self._tasks[self._top] = task
 
         self._advance()
 
@@ -68,7 +66,6 @@ class ReplayBuffer(object):
             rewards=self._rewards[indices],
             terminals=self._terminals[indices],
             hiddens=self._hiddens[indices],
-            tasks=self._tasks[indices],
         )
 
     def random_batch(self, batch_size):

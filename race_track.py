@@ -20,6 +20,8 @@ class RaceTrackEnv(Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))
 
     def reset_task(self, is_evaluation=False):
+        self.enablePrint = is_evaluation
+        # self.enablePrint = True
         return None
 
     def reset(self):
@@ -28,6 +30,7 @@ class RaceTrackEnv(Env):
         self._carState_main = CarState(startRanking = 1)
         self._car_main = Car(self._carState_main, 1)
         self._track.initializeCar(self._carState_main)
+        self.count = 0
 
         return self._get_obs()
 
@@ -35,8 +38,13 @@ class RaceTrackEnv(Env):
         return self._carState_main.getObservation(self._track)
 
     def step(self, action, i = 0):
+        self.count += 1
+        print ("Steped", self.count)
+        if self.count % 5 == 0:
+            self._track.rebuildTrack()
         action = action.flatten()
-        return self._carState_main.step(action[0], action[1], self._track, i)
+        # Enforce 1.0 Throttle for now
+        return self._carState_main.step(action[0], action[1], self._track, i, self.enablePrint)
 
     def viewer_setup(self):
         print('no viewer')

@@ -18,7 +18,7 @@ import matplotlib.patches as patches
 # sInput: steering input: -1: left. +1: right
 
 
-RECORD = True
+RECORD = False
 
 STEPT = 0.1
 
@@ -206,6 +206,7 @@ class CarState:
 		self._drag = drag
 		self._steering = Steering(maxTurningAngle)
 		self._throttle = Throttle(drag, topSpeed, isLinear)
+		self._topSpeed = topSpeed
 		self._length = length
 		self._width = width
 		self._env_window_w = env_window_w
@@ -240,11 +241,12 @@ class CarState:
 		headPosition = np.multiply(nextVelocity_unit,  (self._length/2)) + desired_nextLocation
 		y = int(headPosition[0])
 		x = int(headPosition[1])
-		print("next Speed", nextSpeed)
+
+		# print("next Speed", nextSpeed)
 		if not self._recover and curTrack.getGrid()[y][x] == 1 and nextSpeed > 0.9:
 			self._recover = True
 			self._collision_buff[9] = 1
-			print("collision buffer: ", self._collision_buff)
+			# print("collision buffer: ", self._collision_buff)
 			return np.multiply(0.0001, nextVelocity_unit), self._location - np.multiply(COLLISONPEN, desired_nextVelocity)
 		else:
 			self._recover = False
@@ -254,10 +256,14 @@ class CarState:
 	def getReward(self, curLocation, nextLocation, nextVelocity, curTrack):
 		self._clock += 1;
 		if np.linalg.norm(nextVelocity) == 0.0001:
-			print("---collision at", curLocation)
+			# print("---collision at", curLocation)
 			rew = -5
 		else:
-			rew = -1
+			rew = -1.5
+
+		# Attemp: speed reward:
+
+		rew = rew + np.abs(np.linalg.norm(nextVelocity) / self._topSpeed)
 
 		y_c = int(curLocation[0])
 		x_c = int(curLocation[1])
@@ -276,7 +282,7 @@ class CarState:
 			print("finish crossing")
 			rew += 1000 * 1/self._clock
 			self._clock = 0
-		print("reward: ", rew)
+		# print("reward: ", rew)
 		return rew
 
 	'''
@@ -333,13 +339,16 @@ class CarState:
 		return im_dst
 
 
-	def step(self, sInput, tInput, curTrack, index = 0):
+	def step(self, sInput, tInput, curTrack, index = 0, enablePrint = False):
 		# The current track contains information about other car on the track
 		
-		print("===========")
-		print("Steering Input", sInput)
-		print("Current location: ", self._location)
-		print("Current velocity: ", self._velocity)
+		if enablePrint:
+			print("===========")
+			print("Steering Input", sInput)
+			print("Throttle Input", tInput)
+			print("Current location: ", self._location)
+			print("Current velocity: ", self._velocity)
+			print("Current speed: ", np.linalg.norm(self._velocity))
 		'''
 		print("Throttle Input", tInput)
 		
@@ -385,26 +394,24 @@ class CarState:
 		new_head = self._location + np.multiply(v_unit, self._length/2)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
 
-
 		if RECORD:
 			im_dst = self.getObservationWindow(curTrack)
 			obsname = "obs_images/" + str(index) + ".png"
 			plt.imsave(obsname, im_dst, cmap = 'gray')
 			plt.close()
 
-		corner_reorder = (corner[1], corner[0])
+			corner_reorder = (corner[1], corner[0])
 
-		theta = utils.getAngle(v_unit) * 180/math.pi
-		#print("theta", theta)
+			theta = utils.getAngle(v_unit) * 180/math.pi
+			#print("theta", theta)
 
-		fig,ax = plt.subplots(1)
-		g = curTrack.getGrid()
-		ax.imshow(g, cmap='gray')
+			fig,ax = plt.subplots(1)
+			g = curTrack.getGrid()
+			ax.imshow(g, cmap='gray')
 
-		rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
-		ax.add_patch(rect)
+			rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
+			ax.add_patch(rect)
 
-		if RECORD:
 			gridname = "grid_images/" + str(index) + ".png"
 			plt.savefig(gridname, cmap = 'gray')
 			plt.close()
@@ -413,9 +420,9 @@ class CarState:
 		ob = self.getObservation(curTrack)
 
 		self._total_T += 1
-		print("sum of cb", np.sum(self._collision_buff))
+		# print("sum of cb", np.sum(self._collision_buff))
 		done = (self._total_T > self._max_total_T) or np.sum(self._collision_buff) > 3
-		print("remote side done: ", done)
+		# print("remote side done: ", done)
 		return ob, rew, done, dict()
 
 
@@ -471,7 +478,6 @@ class Throttle:
 		self._isLinear = isLinear
 
 	def getNewSpeed(self, curSpeed, tInput, a_lim_t):
-		print ("tInput", tInput)
 		assert(tInput <= 1.0 and tInput >= -1.0)
 
 		if self._isLinear:
