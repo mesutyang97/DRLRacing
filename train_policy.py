@@ -254,6 +254,8 @@ class Agent(object):
         """
         sy_mean, sy_logstd = policy_parameters
         sy_sampled_ac = sy_mean + tf.exp(sy_logstd) * tf.random_normal(tf.shape(sy_mean), 0, 1)
+        # Have to clip here
+        sy_sampled_ac = tf.clip_by_value(sy_sampled_ac, clip_value_min = -1.0, clip_value_max = 1.0)
         return sy_sampled_ac
 
     def get_log_prob(self, policy_parameters, sy_ac_na):
@@ -406,6 +408,8 @@ class Agent(object):
             # get action from the policy
             # YOUR CODE HERE
             ac = self.sess.run(self.sy_sampled_ac, feed_dict = {self.sy_ob_no : in_[None], self.sy_hidden: hidden[0][None]})
+
+            print("ac shape", ac.shape)
 
 
             # step the environment
@@ -660,7 +664,8 @@ def train_PG(
     # Observation and action sizes
     ob_dim = env.observation_space.shape[0]
     ac_dim = env.action_space.shape[0]
-    task_dim = len(env._goal) # rude, sorry
+    # Sorry
+    task_dim = 1
 
     #========================================================================================#
     # Initialize Agent
@@ -802,7 +807,7 @@ def main():
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--n_iter', '-n', type=int, default=100)
-    parser.add_argument('--batch_size', '-pb', type=int, default=5)
+    parser.add_argument('--batch_size', '-pb', type=int, default=1)
     parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=200)
 
     parser.add_argument('--mini_batch_size', '-mpb', type=int, default=1)
@@ -865,7 +870,7 @@ def main():
                 history=args.history,
                 num_cars=args.num_cars,
                 miu = args.miu,
-                dot_miu = args.dot_miu
+                dot_miu = args.dot_miu,
                 l2reg=args.l2reg,
                 recurrent=args.recurrent,
                 env_window_w= args.env_window_w,

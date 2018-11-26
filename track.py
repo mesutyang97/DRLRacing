@@ -286,7 +286,17 @@ class CarState:
 		return utils.transformRectangle(self._location, self._velocity, self._length, self._width)
 
 
+
 	def getObservation(self, curTrack):
+		im_dst= self.getObservationWindow(curTrack)
+		sensor_flatten = np.array(im_dst).flatten()
+		physical_flatten = np.array([self._location, self._velocity]).flatten()
+		ob = np.concatenate((sensor_flatten, physical_flatten), axis = 0)
+		return ob
+
+
+
+	def getObservationWindow(self, curTrack):
 		# Get the observation
 		# Direction of the car
 		v_unit = self._velocity/np.linalg.norm(self._velocity)
@@ -375,9 +385,9 @@ class CarState:
 		new_head = self._location + np.multiply(v_unit, self._length/2)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
 
-		im_dst = self.getObservation(curTrack)
 
 		if RECORD:
+			im_dst = self.getObservationWindow(curTrack)
 			obsname = "obs_images/" + str(index) + ".png"
 			plt.imsave(obsname, im_dst, cmap = 'gray')
 			plt.close()
@@ -400,9 +410,7 @@ class CarState:
 			plt.close()
 
 		# Put observation together
-		sensor_flatten = np.array(im_dst).flatten()
-		physical_flatten = np.array([self._location, self._velocity]).flatten()
-		ob = np.concatenate((sensor_flatten, physical_flatten), axis = 0)
+		ob = self.getObservation(curTrack)
 
 		self._total_T += 1
 		print("sum of cb", np.sum(self._collision_buff))
@@ -463,6 +471,7 @@ class Throttle:
 		self._isLinear = isLinear
 
 	def getNewSpeed(self, curSpeed, tInput, a_lim_t):
+		print ("tInput", tInput)
 		assert(tInput <= 1.0 and tInput >= -1.0)
 
 		if self._isLinear:
