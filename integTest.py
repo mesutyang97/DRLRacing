@@ -10,19 +10,10 @@ import matplotlib.pyplot as plt
 
 def setup(numCars):
 	track = Track(0.8, 0.3)
-
-
-	# First car
-	poleLocation = (7, 8)
-	startVelocity = (0, 0.00001)
-	
-
 	controller_lst = []
 
 	for i in range(numCars):
-		startLocation = np.subtract(poleLocation, np.multiply(i, (0, 3)))
-
-		carState_i = CarState(startLocation, startRanking = i + 1)
+		carState_i = CarState(startRanking = i + 1)
 		car_i = Car(carState_i, i + 1)
 
 		track.initializeCar(carState_i)
@@ -40,7 +31,7 @@ def setup(numCars):
 
 
 
-t, ctrl_lst = setup(1)
+t, ctrl_lst = setup(2)
 
 maxStep = 210
 

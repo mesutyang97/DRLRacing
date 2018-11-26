@@ -34,6 +34,7 @@ fl = ((0, 20), (7, 20), 3, (0, 1))
 
 
 poleLocation = (7, 8)
+lineupSpace = (0, 3)
 sVelocity = (0, 0.00001)
 
 class Track:
@@ -192,7 +193,10 @@ class Car:
 
 
 class CarState:
-	def __init__(self, startLocation_ft, startRanking = 1, startVelocity = sVelocity, mass=1.35, drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 500, obs_window_w = 10, isLinear = True, max_total_T = 200):
+	def __init__(self, startRanking = 1, startVelocity = sVelocity, mass=1.35, 
+		drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 500, 
+		obs_window_w = 10, isLinear = True, max_total_T = 200):
+		startLocation_ft = np.subtract(poleLocation, np.multiply(startRanking - 1, lineupSpace))
 		startLocation_y = utils.ftToMm(startLocation_ft[0])
 		startLocation_x = utils.ftToMm(startLocation_ft[1])
 		self._location = np.array([startLocation_y, startLocation_x])
@@ -282,6 +286,43 @@ class CarState:
 		return utils.transformRectangle(self._location, self._velocity, self._length, self._width)
 
 
+	def getObservation(self, curTrack):
+		# Get the observation
+		# Direction of the car
+		v_unit = self._velocity/np.linalg.norm(self._velocity)
+		#print("vu", v_unit)
+		rotated_v_unit = utils.rotateVector(v_unit, 90)
+		#print("rotatedvu", rotated_v_unit)
+		#print("self location", self._location)
+		new_head = self._location + np.multiply(v_unit, self._length/2)
+		#print("new_head", new_head)
+		#print("self._env_window_w", self._env_window_w)
+		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
+		corner_1 = corner + np.multiply(v_unit, self._env_window_w)
+		corner_2 = corner_1 + np.multiply(rotated_v_unit, self._env_window_w)
+		corner_3 = corner_2 - np.multiply(v_unit, self._env_window_w)
+
+		pts_src = np.zeros((4, 2))
+
+		# Courtesy to https://www.learnopencv.com/homography-examples-using-opencv-python-c/
+		corners = np.array([corner, corner_1, corner_2, corner_3])
+		#print("corners")
+		#print(corners)
+		pts_src[:,0] = corners[:,1]
+		pts_src[:,1] = corners[:,0]
+		#print("pts_src")
+		#print(pts_src)
+
+		pts_dst = np.array([[0, 0],[self._obs_window_w, 0], [self._obs_window_w, self._obs_window_w], [0, self._obs_window_w]])
+
+		# Calculate Homography
+		h, status = cv2.findHomography(pts_src, pts_dst)
+
+		im_dst = cv2.warpPerspective(curTrack.getGrid(), h, (self._obs_window_w, self._obs_window_w))
+		# print(im_dst)
+		return im_dst
+
+
 	def step(self, sInput, tInput, curTrack, index = 0):
 		# The current track contains information about other car on the track
 		
@@ -328,39 +369,13 @@ class CarState:
 		new_rect = self.getTransformedRectangle()
 		curTrack.updateGrid(new_rect, 1)
 
-		# Get the observation
-		# Direction of the car
+		# Replicated from getObservation
 		v_unit = self._velocity/np.linalg.norm(self._velocity)
-		#print("vu", v_unit)
 		rotated_v_unit = utils.rotateVector(v_unit, 90)
-		#print("rotatedvu", rotated_v_unit)
-		#print("self location", self._location)
 		new_head = self._location + np.multiply(v_unit, self._length/2)
-		#print("new_head", new_head)
-		#print("self._env_window_w", self._env_window_w)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
-		corner_1 = corner + np.multiply(v_unit, self._env_window_w)
-		corner_2 = corner_1 + np.multiply(rotated_v_unit, self._env_window_w)
-		corner_3 = corner_2 - np.multiply(v_unit, self._env_window_w)
 
-		pts_src = np.zeros((4, 2))
-
-		# Courtesy to https://www.learnopencv.com/homography-examples-using-opencv-python-c/
-		corners = np.array([corner, corner_1, corner_2, corner_3])
-		#print("corners")
-		#print(corners)
-		pts_src[:,0] = corners[:,1]
-		pts_src[:,1] = corners[:,0]
-		#print("pts_src")
-		#print(pts_src)
-
-		pts_dst = np.array([[0, 0],[self._obs_window_w, 0], [self._obs_window_w, self._obs_window_w], [0, self._obs_window_w]])
-
-		# Calculate Homography
-		h, status = cv2.findHomography(pts_src, pts_dst)
-
-		im_dst = cv2.warpPerspective(curTrack.getGrid(), h, (self._obs_window_w, self._obs_window_w))
-		# print(im_dst)
+		im_dst = self.getObservation(curTrack)
 
 		if RECORD:
 			obsname = "obs_images/" + str(index) + ".png"
