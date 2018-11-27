@@ -30,7 +30,7 @@ w_ft = 20
 l_ft = 40
 bd_lst = [((10, 10), (10, 30), 6), ((7, 0.8), (0.8, 7), 2.5), ((7, 39.2), (0.8, 33), 2.5), ((13, 39.2), (19.8, 33), 2.5), ((13, 0.8), (19.8, 7), 2.5)]
 dt_lst = [((10, 10), 3), ((10, 30), 3)]
-fl = ((0, 20), (7, 20), 3, (0, 1))
+fl = ((1.63, 20), (7, 20), 3, (0, 1))
 
 
 poleLocation = (7, 8)
@@ -118,7 +118,7 @@ class Track:
 			a,b = np.ogrid[-y:w-y, -x:l-x]
 			mask = a*a + b*b <= r*r
 
-			temp_g[mask] = -1
+			temp_g[mask] = 0.5
 		self._grid = temp_g
 	
 
@@ -194,8 +194,8 @@ class Car:
 
 class CarState:
 	def __init__(self, startRanking = 1, startVelocity = sVelocity, mass=1.35, 
-		drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 500, 
-		obs_window_w = 10, isLinear = True, max_total_T = 200):
+		drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 1000, 
+		obs_window_w = 10, sensor_only = 1, isLinear = True, max_total_T = 200):
 		startLocation_ft = np.subtract(poleLocation, np.multiply(startRanking - 1, lineupSpace))
 		startLocation_y = utils.ftToMm(startLocation_ft[0])
 		startLocation_x = utils.ftToMm(startLocation_ft[1])
@@ -211,6 +211,7 @@ class CarState:
 		self._width = width
 		self._env_window_w = env_window_w
 		self._obs_window_w = obs_window_w
+		self._sensor_only = sensor_only
 		self._recover = False
 
 		self._startCrossing = False
@@ -296,9 +297,12 @@ class CarState:
 	def getObservation(self, curTrack):
 		im_dst= self.getObservationWindow(curTrack)
 		sensor_flatten = np.array(im_dst).flatten()
-		physical_flatten = np.array([self._location, self._velocity]).flatten()
-		ob = np.concatenate((sensor_flatten, physical_flatten), axis = 0)
-		return ob
+		if self._sensor_only:
+			return sensor_flatten
+		else:
+			physical_flatten = np.array([self._location, self._velocity]).flatten()
+			ob = np.concatenate((sensor_flatten, physical_flatten), axis = 0)
+			return ob
 
 
 

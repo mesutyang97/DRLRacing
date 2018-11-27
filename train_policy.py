@@ -343,7 +343,7 @@ class Agent(object):
         while True:
             animate_this_episode=(len(stats)==0 and (itr % 10 == 0) and self.animate)
             steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation)
-            print("+++ finish sampling 1 trajectory")
+            print("+++ finish sampling a trajectory with length", steps)
             stats += s
             timesteps_this_batch += steps
             if timesteps_this_batch > min_timesteps:
@@ -389,6 +389,7 @@ class Agent(object):
                 # first meta ob has only the observation
                 # set a, r, d to zero, construct first meta observation in meta_obs
                 # YOUR CODE HERE
+                # print("meta shape", meta_obs[0].shape)
                 meta_obs[0] = np.concatenate((np.copy(ob), np.zeros(self.ac_dim), np.zeros(2)))
                 steps += 1
 
@@ -632,6 +633,7 @@ def train_PG(
         recurrent,
         env_window_w,
         obs_window_w,
+        sensor_only,
         ):
 
     start = time.time()
@@ -649,7 +651,7 @@ def train_PG(
     envs = {'rt': RaceTrackEnv,
             }
     if env_name == 'rt':
-        env = envs[env_name](num_cars, miu, dot_miu, env_window_w, obs_window_w)
+        env = envs[env_name](num_cars, miu, dot_miu, env_window_w, obs_window_w, sensor_only)
     else:
         print("something is wrong")
 
@@ -766,7 +768,7 @@ def train_PG(
         print('Validating...')
         val_stats = []
         for _ in range(num_cars):
-            vs, timesteps_this_batch = agent.sample_trajectories(itr, env, min_timesteps_per_batch // 10, is_evaluation=True)
+            vs, timesteps_this_batch = agent.sample_trajectories(itr, env, min_timesteps_per_batch // 3, is_evaluation=True)
             val_stats += vs
 
         # save trajectories for viz
@@ -829,8 +831,9 @@ def main():
     parser.add_argument('--history', '-ho', type=int, default=1)
     parser.add_argument('--l2reg', '-reg', action='store_true')
     parser.add_argument('--recurrent', '-rec', action='store_true')
-    parser.add_argument('--env_window_w', type=int, default=500)
+    parser.add_argument('--env_window_w', type=int, default=1000)
     parser.add_argument('--obs_window_w', type=int, default=10)
+    parser.add_argument('--sensor_only', type=int, default=1)
     args = parser.parse_args()
 
     if not(os.path.exists('data')):
@@ -876,6 +879,7 @@ def main():
                 recurrent=args.recurrent,
                 env_window_w= args.env_window_w,
                 obs_window_w= args.obs_window_w,
+                sensor_only = args.sensor_only,
                 )
         # # Awkward hacky process runs, because Tensorflow does not like
         # # repeatedly calling train_PG in the same thread.
