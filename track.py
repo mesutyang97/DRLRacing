@@ -194,7 +194,7 @@ class Car:
 
 class CarState:
 	def __init__(self, startRanking = 1, startVelocity = sVelocity, mass=1.35, 
-		drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 1000, 
+		drag=0, topSpeed = 6, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 1000, 
 		obs_window_w = 10, sensor_only = 1, isLinear = True, max_total_T = 200):
 		startLocation_ft = np.subtract(poleLocation, np.multiply(startRanking - 1, lineupSpace))
 		startLocation_y = utils.ftToMm(startLocation_ft[0])

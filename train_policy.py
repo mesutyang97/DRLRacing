@@ -832,7 +832,7 @@ def main():
     parser.add_argument('--l2reg', '-reg', action='store_true')
     parser.add_argument('--recurrent', '-rec', action='store_true')
     parser.add_argument('--env_window_w', type=int, default=1000)
-    parser.add_argument('--obs_window_w', type=int, default=10)
+    parser.add_argument('--obs_window_w', type=int, default=5)
     parser.add_argument('--sensor_only', type=int, default=1)
     args = parser.parse_args()
 
