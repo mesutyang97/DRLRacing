@@ -24,6 +24,9 @@ def rotateVector(v, dtheta):
 def ftToMm(lengthInFeet):
 	return int(lengthInFeet * 304.8)
 
+def downSample(length):
+	return int(length/10)
+
 def sameDirection(v1, v2):
 	return np.dot(np.array(v1), v2) > 0
 

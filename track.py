@@ -24,13 +24,16 @@ STEPT = 0.1
 
 COLLISONPEN = 3.0
 
+DOWNSAMPLED = True
 
 # Here are some default parameters for a oval track
 w_ft = 20
 l_ft = 40
 bd_lst = [((10, 10), (10, 30), 6), ((7, 0.8), (0.8, 7), 2.5), ((7, 39.2), (0.8, 33), 2.5), ((13, 39.2), (19.8, 33), 2.5), ((13, 0.8), (19.8, 7), 2.5)]
 dt_lst = [((10, 10), 3), ((10, 30), 3)]
-fl = ((1.63, 20), (7, 20), 3, (0, 1))
+boardwith_ft = 1.63
+fl = ((boardwith_ft, 20), (7, 20), 3, (0, 1))
+
 
 
 poleLocation = (7, 8)
@@ -40,10 +43,13 @@ sVelocity = (0, 0.00001)
 class Track:
 	def __init__(self, miu, dot_miu, w_feet = w_ft, l_feet = l_ft, board_lst = bd_lst, dot_lst = dt_lst, finish_line = fl):
 		# Friction
+
 		self.miu = miu
 		self._trackw = utils.ftToMm(w_feet)
 		self._trackl = utils.ftToMm(l_feet)
-		self._grid = self.initializeGrid(self._trackw, self._trackl, 500)
+		boardwidth = utils.ftToMm(boardwith_ft)
+
+		self._grid = self.initializeGrid(self._trackw, self._trackl, boardwidth)
 		self._dot_lst = dot_lst
 		self._finish_line = finish_line
 		self._board_lst = board_lst
