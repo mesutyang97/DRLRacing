@@ -17,8 +17,10 @@ class RaceTrackEnv(Env):
         self.sensor_only = sensor_only
 
         self.reset()
-        if sensor_only:
+        if sensor_only == 1:
             self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_window_w * obs_window_w,))
+        elif sensor_only == 2:
+            self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_window_w * obs_window_w + 1,))
         else:
             self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_window_w * obs_window_w + 4,))
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))

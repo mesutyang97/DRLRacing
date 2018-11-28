@@ -68,6 +68,12 @@ class Track:
 		self.carDict = {}
 
 
+	def getTrackw(self):
+		return self._trackw
+
+	def getTrackl(self):
+		return self._trackl
+
 	'''
 	Initialize a 1-padded zero arrays as the grid
 	'''
@@ -276,12 +282,12 @@ class Car:
 
 class CarState:
 	def __init__(self, startRanking = 1, startVelocity = sVelocity, mass=1.35, 
-		drag=0, topSpeed = 6, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 100, 
+		drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 100, 
 		obs_window_w = 5, sensor_only = 1, isLinear = True, max_total_T = 200):
 
 		if DOWNSAMPLED:
-			length = length//10
-			width = width//10
+			length = int(length/10)
+			width = int(width/10)
 		startLocation_ft = np.subtract(poleLocation, np.multiply(startRanking - 1, lineupSpace))
 		startLocation_y = utils.ftToMm(startLocation_ft[0])
 		startLocation_x = utils.ftToMm(startLocation_ft[1])
@@ -335,7 +341,7 @@ class CarState:
 		x = int(headPosition[1])
 
 		# print("next Speed", nextSpeed)
-		if not self._recover and curTrack.getGrid()[y][x] == 1 and nextSpeed > 0.9:
+		if (y >= curTrack.getTrackw() or y < 0 or x >= curTrack.getTrackl() or x < 0) or (not self._recover and curTrack.getGrid()[y][x] == 1 and nextSpeed > 0.9):
 			self._recover = True
 			self._collision_buff[9] = 1
 			# print("collision buffer: ", self._collision_buff)
@@ -371,9 +377,11 @@ class CarState:
 					print("<start crossing")
 					rew += 1
 			elif val < 0:
+				'''
 				print("val", val)
 				index = int((-0.01 - val)/0.01)
 				print("index, ", index)
+				'''
 				if utils.sameDirection(nextVelocity, curTrack.getAssistLineDir()[index]):
 					self._startCrossing = True
 					self._exitDirection = curTrack.getAssistLineDir()[index]
@@ -406,8 +414,12 @@ class CarState:
 	def getObservation(self, curTrack):
 		im_dst= self.getObservationWindow(curTrack)
 		sensor_flatten = np.array(im_dst).flatten()
-		if self._sensor_only:
+		if self._sensor_only == 1:
 			return sensor_flatten
+		elif self._sensor_only == 2:
+			speed_flatten = np.array([np.linalg.norm(self._velocity)]).flatten()
+			ob = np.concatenate((sensor_flatten, speed_flatten), axis = 0)
+			return ob 
 		else:
 			physical_flatten = np.array([self._location, self._velocity]).flatten()
 			ob = np.concatenate((sensor_flatten, physical_flatten), axis = 0)
@@ -600,18 +612,21 @@ class Throttle:
 		assert(tInput <= 1.0 and tInput >= -1.0)
 
 		if self._isLinear:
+			desiredNextSpeed = self._topSpeed * tInput
+			'''
+			return max (0.000001, desiredNextSpeed)
+			'''
 			# Coasting: just drag
 			if (tInput == 0):
 				return curSpeed * (1 - self._drag)
-
-			desiredNextSpeed = self._topSpeed * tInput
 			desired_a_t = (desiredNextSpeed - curSpeed)/STEPT
 			a_t = desired_a_t
 			if desired_a_t < - a_lim_t:
 				a_t = - a_lim_t
 			elif desired_a_t > a_lim_t:
 				a_t = a_lim_t
-			return curSpeed + a_t * STEPT
+			return max (0.000001, curSpeed + a_t * STEPT)
+			
 		else:
 			raise NotImplementedError
 

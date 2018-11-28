@@ -257,7 +257,7 @@ class Agent(object):
         # Have to clip here
         sy_sampled_ac = tf.clip_by_value(sy_sampled_ac, clip_value_min = -1.0, clip_value_max = 1.0)
         sIn, tIn = tf.split(sy_sampled_ac, 2, axis=1)
-        tIn = tf.clip_by_value(tIn, clip_value_min = 0.8, clip_value_max = 1.0)
+        tIn = tf.clip_by_value(tIn, clip_value_min = -0.2, clip_value_max = 1.0)
         sy_sampled_ac = tf.concat([sIn, tIn], axis=1)
         return sy_sampled_ac
 
@@ -813,15 +813,15 @@ def main():
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--n_iter', '-n', type=int, default=100)
-    parser.add_argument('--batch_size', '-pb', type=int, default=10)
-    parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=1200)
+    parser.add_argument('--batch_size', '-pb', type=int, default=5000)
+    parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=5000)
 
-    parser.add_argument('--mini_batch_size', '-mpb', type=int, default=10)
+    parser.add_argument('--mini_batch_size', '-mpb', type=int, default=32)
     parser.add_argument('--num_cars', '-nc', type=int, default=1)
-    parser.add_argument('--miu', type=float, default=0.8)
+    parser.add_argument('--miu', type=float, default=0.6)
     parser.add_argument('--dot_miu', type=float, default=0.3)
 
-    parser.add_argument('--ep_len', '-ep', type=int, default=200)
+    parser.add_argument('--ep_len', '-ep', type=int, default=600)
     parser.add_argument('--learning_rate', '-lr', type=float, default=5e-4)
     parser.add_argument('--num_value_iters', '-nvu', type=int, default=1)
     parser.add_argument('--dont_normalize_advantages', '-dna', action='store_true')
