@@ -821,7 +821,7 @@ def main():
     parser.add_argument('--miu', type=float, default=0.6)
     parser.add_argument('--dot_miu', type=float, default=0.3)
 
-    parser.add_argument('--ep_len', '-ep', type=int, default=600)
+    parser.add_argument('--ep_len', '-ep', type=int, default=200)
     parser.add_argument('--learning_rate', '-lr', type=float, default=5e-4)
     parser.add_argument('--num_value_iters', '-nvu', type=int, default=1)
     parser.add_argument('--dont_normalize_advantages', '-dna', action='store_true')

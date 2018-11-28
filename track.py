@@ -377,11 +377,9 @@ class CarState:
 					print("<s fl")
 					rew += 1
 			elif val < 0:
-				'''
-				print("val", val)
+				#print("val", val)
 				index = int((-0.01 - val)/0.01)
-				print("index, ", index)
-				'''
+				#print("index, ", index)
 				if utils.sameDirection(nextVelocity, curTrack.getAssistLineDir()[index]):
 					self._startCrossing = True
 					self._exitDirection = curTrack.getAssistLineDir()[index]
@@ -394,11 +392,11 @@ class CarState:
 			self._startCrossing = False
 			print(">f c")
 			self.num_crossed += 1
-			if self.num_crossed = 2:
+			if self.num_crossed == 2:
 				print("DINGDING")
-			if self.num_crossed = 3:
+			if self.num_crossed == 3:
 				print("DINGDINGDING")
-			if self.num_crossed = 4:
+			if self.num_crossed == 4:
 				print("DINGDINGDINGDING")
 			rew += 1000 * 1/self._clock
 			self._clock = 0
