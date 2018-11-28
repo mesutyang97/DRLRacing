@@ -30,6 +30,8 @@ def downSample(length):
 def sameDirection(v1, v2):
 	return np.dot(np.array(v1), v2) > 0
 
+def numEq(a, b):
+	return a < b + 0.001 and a > b - 0.001
 
 def transformRectangle(loc, v, length, width):
 	# The negative sign is used to address the assymatry between angle and sign

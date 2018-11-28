@@ -340,14 +340,17 @@ class Agent(object):
         # Collect paths until we have enough timesteps
         timesteps_this_batch = 0
         stats = []
+        lengths = []
         while True:
             animate_this_episode=(len(stats)==0 and (itr % 10 == 0) and self.animate)
             steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation)
-            print("+++ finish sampling a trajectory with length", steps)
+            lengths.append(steps)
             stats += s
             timesteps_this_batch += steps
             if timesteps_this_batch > min_timesteps:
                 break
+        print("Number of trajectory: ", len(lengths))
+        print("Trajectory lengths", lengths)
         return stats, timesteps_this_batch
 
     def sample_trajectory(self, env, animate_this_episode, is_evaluation):
@@ -438,7 +441,7 @@ class Agent(object):
                 self.replay_buffer.add_sample(in_, ac, rew, done, hidden)
 
             # start new episode
-            if done:
+            if done or steps >= num_samples:
                 # compute stats over trajectory
                 s = dict()
                 s['rewards']= rewards[-ep_steps:]
@@ -446,7 +449,7 @@ class Agent(object):
                 stats.append(s)
                 ep_steps = 0
 
-            if steps >= num_samples:
+            # if steps >= num_samples:
                 break
 
         return steps, stats
@@ -810,15 +813,15 @@ def main():
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--discount', type=float, default=0.99)
     parser.add_argument('--n_iter', '-n', type=int, default=100)
-    parser.add_argument('--batch_size', '-pb', type=int, default=2)
-    parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=350)
+    parser.add_argument('--batch_size', '-pb', type=int, default=10)
+    parser.add_argument('--min_timesteps_per_batch', '-mtpb', type=int, default=1200)
 
-    parser.add_argument('--mini_batch_size', '-mpb', type=int, default=2)
+    parser.add_argument('--mini_batch_size', '-mpb', type=int, default=10)
     parser.add_argument('--num_cars', '-nc', type=int, default=1)
     parser.add_argument('--miu', type=float, default=0.8)
     parser.add_argument('--dot_miu', type=float, default=0.3)
 
-    parser.add_argument('--ep_len', '-ep', type=int, default=100)
+    parser.add_argument('--ep_len', '-ep', type=int, default=200)
     parser.add_argument('--learning_rate', '-lr', type=float, default=5e-4)
     parser.add_argument('--num_value_iters', '-nvu', type=int, default=1)
     parser.add_argument('--dont_normalize_advantages', '-dna', action='store_true')
@@ -831,8 +834,8 @@ def main():
     parser.add_argument('--history', '-ho', type=int, default=1)
     parser.add_argument('--l2reg', '-reg', action='store_true')
     parser.add_argument('--recurrent', '-rec', action='store_true')
-    parser.add_argument('--env_window_w', type=int, default=1000)
-    parser.add_argument('--obs_window_w', type=int, default=5)
+    parser.add_argument('--env_window_w', type=int, default=100)
+    parser.add_argument('--obs_window_w', type=int, default=10)
     parser.add_argument('--sensor_only', type=int, default=1)
     args = parser.parse_args()
 

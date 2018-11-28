@@ -33,13 +33,13 @@ def setup(numCars):
 
 t, ctrl_lst = setup(2)
 
-maxStep = 210
+maxStep = 2010
 
 for i in range(maxStep):
 	for ctrl in ctrl_lst:
 		rd = random.uniform(-0.8, 0.8)
 		ob, rew, done, _ = ctrl.step((rd, 1.0), i)
-		print ("test side done:", done)
+		# print ("test side done:", done)
 		#if done:
 		#	ctrl_lst.remove(ctrl)
 	if i % 5 == 0:

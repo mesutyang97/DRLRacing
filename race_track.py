@@ -2,7 +2,7 @@ import numpy as np
 from gym import spaces
 from gym import Env
 from track import *
-
+import random
 
 class RaceTrackEnv(Env):
     """
@@ -24,8 +24,8 @@ class RaceTrackEnv(Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))
 
     def reset_task(self, is_evaluation=False):
-        self.enablePrint = is_evaluation
-        # self.enablePrint = True
+        # self.enablePrint = is_evaluation
+        self.enablePrint = (is_evaluation) and (random.random() < 0.01) 
         return None
 
     def reset(self):

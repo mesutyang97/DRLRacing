@@ -33,6 +33,7 @@ bd_lst = [((10, 10), (10, 30), 6), ((7, 0.8), (0.8, 7), 2.5), ((7, 39.2), (0.8, 
 dt_lst = [((10, 10), 3), ((10, 30), 3)]
 boardwith_ft = 1.63
 fl = ((boardwith_ft, 20), (7, 20), 3, (0, 1))
+al_lst = [((13, 20), (20 - boardwith_ft, 20), 3, (0, -1))]
 
 
 
@@ -41,20 +42,28 @@ lineupSpace = (0, 3)
 sVelocity = (0, 0.00001)
 
 class Track:
-	def __init__(self, miu, dot_miu, w_feet = w_ft, l_feet = l_ft, board_lst = bd_lst, dot_lst = dt_lst, finish_line = fl):
+	def __init__(self, miu, dot_miu, w_feet = w_ft, l_feet = l_ft, board_lst = bd_lst, dot_lst = dt_lst, finish_line = fl, assist_line_lst = al_lst):
 		# Friction
-
 		self.miu = miu
+		if DOWNSAMPLED:
+			w_feet = w_feet/10
+			l_feet = l_feet/10
+			boardwidth_ft = boardwith_ft/10
+		else:
+			boardwidth_ft = boardwith_ft
+
 		self._trackw = utils.ftToMm(w_feet)
 		self._trackl = utils.ftToMm(l_feet)
-		boardwidth = utils.ftToMm(boardwith_ft)
+		boardwidth = utils.ftToMm(boardwidth_ft)
 
 		self._grid = self.initializeGrid(self._trackw, self._trackl, boardwidth)
 		self._dot_lst = dot_lst
 		self._finish_line = finish_line
 		self._board_lst = board_lst
+		self._assist_line_lst = al_lst
 		self.buildDots(dot_lst, self._trackw, self._trackl)
 		self.buildFinishLine(finish_line)
+		self.buildAssistLine(al_lst)
 		self.buildBoards(board_lst)
 		self.carDict = {}
 
@@ -79,10 +88,16 @@ class Track:
 	def buildBoards(self, board_lst):
 		for board in board_lst:
 			endpoint_A_y_ft, endpoint_A_x_ft = board[0]
+			if DOWNSAMPLED:
+				endpoint_A_y_ft = endpoint_A_y_ft/10
+				endpoint_A_x_ft = endpoint_A_x_ft/10
 			endpoint_A_y = utils.ftToMm(endpoint_A_y_ft)
 			endpoint_A_x = utils.ftToMm(endpoint_A_x_ft)
 
 			endpoint_B_y_ft, endpoint_B_x_ft = board[1]
+			if DOWNSAMPLED:
+				endpoint_B_y_ft = endpoint_B_y_ft/10
+				endpoint_B_x_ft = endpoint_B_x_ft/10
 			endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
 			endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
 			'''
@@ -91,6 +106,8 @@ class Track:
 			'''
 
 			half_width = utils.ftToMm(board[2]/2)
+			if DOWNSAMPLED:
+				half_width = half_width//10
 			# Board is horizontal, or, aligned with length
 			if endpoint_A_y == endpoint_B_y:
 				self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] = np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
@@ -115,10 +132,15 @@ class Track:
 		temp_g = self._grid.copy()
 		for dot in dot_lst:
 			y_ft, x_ft = dot[0]
+			if DOWNSAMPLED:
+				y_ft = y_ft/10
+				x_ft = x_ft/10
 			y = utils.ftToMm(y_ft)
 			x = utils.ftToMm(x_ft)
 
 			r_ft = dot[1]
+			if DOWNSAMPLED:
+				r_ft = r_ft/10
 			r = utils.ftToMm(r_ft)
 
 			a,b = np.ogrid[-y:w-y, -x:l-x]
@@ -134,16 +156,24 @@ class Track:
 	'''
 	def buildFinishLine(self, finish_line):
 		endpoint_A_y_ft, endpoint_A_x_ft = finish_line[0]
+		if DOWNSAMPLED:
+			endpoint_A_y_ft = endpoint_A_y_ft/10
+			endpoint_A_x_ft = endpoint_A_x_ft/10
 		endpoint_A_y = utils.ftToMm(endpoint_A_y_ft)
 		endpoint_A_x = utils.ftToMm(endpoint_A_x_ft)
 
 		endpoint_B_y_ft, endpoint_B_x_ft = finish_line[1]
+		if DOWNSAMPLED:
+			endpoint_B_y_ft = endpoint_B_y_ft/10
+			endpoint_B_x_ft = endpoint_B_x_ft/10
 		endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
 		endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
 		assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
 		assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
 
 		half_width = utils.ftToMm(finish_line[2]/2)
+		if DOWNSAMPLED:
+			half_width = half_width//10
 		# Board is horizontal, or, aligned with length
 		if endpoint_A_y == endpoint_B_y:
 			self._grid[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] \
@@ -159,11 +189,57 @@ class Track:
 		#Finish line direction
 		self.finish_line_dir = np.array(finish_line[3])
 
+	def buildAssistLine(self, assist_line_lst):
+		temp_g = self._grid.copy()
+		counter = 0
+		assist_line_dir_arr = np.zeros((len(assist_line_lst), 2))
+		for al in assist_line_lst:
+			endpoint_A_y_ft, endpoint_A_x_ft = al[0]
+			if DOWNSAMPLED:
+				endpoint_A_y_ft = endpoint_A_y_ft/10
+				endpoint_A_x_ft = endpoint_A_x_ft/10
+			endpoint_A_y = utils.ftToMm(endpoint_A_y_ft)
+			endpoint_A_x = utils.ftToMm(endpoint_A_x_ft)
+
+			endpoint_B_y_ft, endpoint_B_x_ft = al[1]
+			if DOWNSAMPLED:
+				endpoint_B_y_ft = endpoint_B_y_ft/10
+				endpoint_B_x_ft = endpoint_B_x_ft/10
+			endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
+			endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
+			'''
+			assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
+			assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
+			'''
+
+			half_width = utils.ftToMm(al[2]/2)
+			if DOWNSAMPLED:
+				half_width = half_width//10
+			# Board is horizontal, or, aligned with length
+			if endpoint_A_y == endpoint_B_y:
+				temp_g[endpoint_A_y - half_width:endpoint_A_y + half_width, endpoint_A_x: endpoint_B_x] \
+				= -(0.01 + 0.01*counter)  * np.ones(((2*half_width), endpoint_B_x- endpoint_A_x))
+			# Board is vertical, or, aligned with width
+			elif endpoint_A_x == endpoint_B_x:
+				temp_g[endpoint_A_y: endpoint_B_y, endpoint_A_x - half_width:endpoint_A_x + half_width] \
+				= -(0.01 + 0.01*counter) * np.ones((endpoint_B_y- endpoint_A_y, (2*half_width)))
+			else:
+				print("Not supporting diagonal assist line yet")
+			assist_line_dir_arr[counter:] = np.array(al[3]).reshape((1, 2))
+		self._assist_line_dir = assist_line_dir_arr
+
+		# print("self._assistline", self._assist_line_dir)
+		self._grid = temp_g
+
+
+	def getAssistLineDir(self):
+		return self._assist_line_dir
 
 	def rebuildTrack(self):
 		self.buildDots(self._dot_lst, self._trackw, self._trackl)
 		self.buildFinishLine(self._finish_line)
 		self.buildBoards(self._board_lst)
+		self.buildAssistLine(self._assist_line_lst)
 
 
 	# Initialize the grid in the beginning
@@ -200,11 +276,18 @@ class Car:
 
 class CarState:
 	def __init__(self, startRanking = 1, startVelocity = sVelocity, mass=1.35, 
-		drag=0, topSpeed = 6, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 1000, 
-		obs_window_w = 10, sensor_only = 1, isLinear = True, max_total_T = 200):
+		drag=0, topSpeed = 6, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 100, 
+		obs_window_w = 5, sensor_only = 1, isLinear = True, max_total_T = 200):
+
+		if DOWNSAMPLED:
+			length = length//10
+			width = width//10
 		startLocation_ft = np.subtract(poleLocation, np.multiply(startRanking - 1, lineupSpace))
 		startLocation_y = utils.ftToMm(startLocation_ft[0])
 		startLocation_x = utils.ftToMm(startLocation_ft[1])
+		if DOWNSAMPLED:
+			startLocation_y = startLocation_y//10
+			startLocation_x = startLocation_x//10
 		self._location = np.array([startLocation_y, startLocation_x])
 		self._velocity = np.array(startVelocity)
 		self._rank = startRanking
@@ -226,6 +309,8 @@ class CarState:
 
 		self._total_T = 0
 		self._max_total_T = max_total_T
+
+		self.num_crossed = 0
 
 
 		self._collision_buff = np.zeros(10)
@@ -266,7 +351,7 @@ class CarState:
 			# print("---collision at", curLocation)
 			rew = -5
 		else:
-			rew = -1.5
+			rew = 0
 
 		# Attemp: speed reward:
 
@@ -276,20 +361,38 @@ class CarState:
 		x_c = int(curLocation[1])
 		y_n = int(nextLocation[0])
 		x_n = int(nextLocation[1])
+		# the finish line
+		if self._startCrossing == False:
+			val = curTrack.getGrid()[y_n][x_n]
+			if utils.numEq(val, -0.1):
+				if utils.sameDirection(nextVelocity, curTrack.finish_line_dir):
+					self._startCrossing = True
+					self._exitDirection = curTrack.finish_line_dir
+					print("<start crossing")
+					rew += 1
+			elif val < 0:
+				print("val", val)
+				index = int((-0.01 - val)/0.01)
+				print("index, ", index)
+				if utils.sameDirection(nextVelocity, curTrack.getAssistLineDir()[index]):
+					self._startCrossing = True
+					self._exitDirection = curTrack.getAssistLineDir()[index]
+					print("<start crossing assist line")
+					rew += 0.5
 
-		if (self._startCrossing == False) and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
-			and curTrack.getGrid()[y_n][x_n] == -0.1:
-			self._startCrossing = True
-			print("start crossing")
-			rew += 1
-		
-		elif (self._startCrossing == True) and utils.sameDirection(nextVelocity, curTrack.finish_line_dir) \
-		and curTrack.getGrid()[y_n][x_n] == 0:
+
+		elif (self._startCrossing == True) and curTrack.getGrid()[y_n][x_n] == 0\
+		and utils.sameDirection(nextVelocity, self._exitDirection):
 			self._startCrossing = False
-			print("finish crossing")
+			print(">>>>>finish crossing")
+			self.num_crossed += 1
+			if self.num_crossed > 1:
+				print("DINGDINGDINGDINGDING")
 			rew += 1000 * 1/self._clock
 			self._clock = 0
 		# print("reward: ", rew)
+
+
 		return rew
 
 	'''
@@ -379,6 +482,8 @@ class CarState:
 		desired_nextVelocity = np.multiply(nextSpeed, nextVelocity_unit)
 		# The 1000 is to convert m/s to mm/s
 		desired_nextLocation = self._location + np.multiply(STEPT * 1000, self._velocity)
+		if DOWNSAMPLED:
+			desired_nextLocation = self._location + np.multiply(STEPT * 100, self._velocity)
 
 		# 1: check collision
 		nextVelocity, nextLocation = self.checkCollison(nextSpeed, nextVelocity_unit, desired_nextVelocity, desired_nextLocation, curTrack)
@@ -431,7 +536,11 @@ class CarState:
 
 		self._total_T += 1
 		# print("sum of cb", np.sum(self._collision_buff))
-		done = (self._total_T > self._max_total_T) or np.sum(self._collision_buff) > 3
+		done = (self._total_T > self._max_total_T) or np.sum(self._collision_buff) > 2
+		'''
+		if np.sum(self._collision_buff) > 1:
+			print("--crashed out")
+		'''
 		# print("remote side done: ", done)
 		return ob, rew, done, dict()
 
