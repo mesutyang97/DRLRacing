@@ -8,13 +8,14 @@ class RaceTrackEnv(Env):
     """
     """
 
-    def __init__(self, num_cars=1, miu = 0.8, dot_miu = 0.3, env_window_w = 500, obs_window_w = 10, sensor_only = 1):
+    def __init__(self, num_cars=1, miu = 0.8, dot_miu = 0.3, env_window_w = 500, obs_window_w = 10, sensor_only = 1, max_path_length = 200):
         self.num_cars = num_cars
         self.miu = miu
         self.dot_miu = dot_miu
         self.env_window_w = env_window_w
         self.obs_window_w = obs_window_w
         self.sensor_only = sensor_only
+        self.max_path_length = max_path_length
 
         self.reset()
         if sensor_only == 1:
@@ -33,7 +34,8 @@ class RaceTrackEnv(Env):
     def reset(self):
         self._track = Track(self.miu, self.dot_miu)
 
-        self._carState_main = CarState(startRanking = 1, env_window_w = self.env_window_w, obs_window_w = self.obs_window_w, sensor_only = self.sensor_only)
+        self._carState_main = CarState(startRanking = 1, env_window_w = self.env_window_w, obs_window_w = self.obs_window_w, 
+            sensor_only = self.sensor_only, max_total_T = self.max_path_length)
         self._car_main = Car(self._carState_main, 1)
         self._track.initializeCar(self._carState_main)
         self.count = 0

@@ -654,7 +654,7 @@ def train_PG(
     envs = {'rt': RaceTrackEnv,
             }
     if env_name == 'rt':
-        env = envs[env_name](num_cars, miu, dot_miu, env_window_w, obs_window_w, sensor_only)
+        env = envs[env_name](num_cars, miu, dot_miu, env_window_w, obs_window_w, sensor_only, max_path_length)
     else:
         print("something is wrong")
 

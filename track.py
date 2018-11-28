@@ -374,7 +374,7 @@ class CarState:
 				if utils.sameDirection(nextVelocity, curTrack.finish_line_dir):
 					self._startCrossing = True
 					self._exitDirection = curTrack.finish_line_dir
-					print("<start crossing")
+					print("<s fl")
 					rew += 1
 			elif val < 0:
 				'''
@@ -385,17 +385,21 @@ class CarState:
 				if utils.sameDirection(nextVelocity, curTrack.getAssistLineDir()[index]):
 					self._startCrossing = True
 					self._exitDirection = curTrack.getAssistLineDir()[index]
-					print("<start crossing assist line")
+					print("<s al")
 					rew += 0.5
 
 
 		elif (self._startCrossing == True) and curTrack.getGrid()[y_n][x_n] == 0\
 		and utils.sameDirection(nextVelocity, self._exitDirection):
 			self._startCrossing = False
-			print(">>>>>finish crossing")
+			print(">f c")
 			self.num_crossed += 1
-			if self.num_crossed > 1:
-				print("DINGDINGDINGDINGDING")
+			if self.num_crossed = 2:
+				print("DINGDING")
+			if self.num_crossed = 3:
+				print("DINGDINGDING")
+			if self.num_crossed = 4:
+				print("DINGDINGDINGDING")
 			rew += 1000 * 1/self._clock
 			self._clock = 0
 		# print("reward: ", rew)
@@ -469,11 +473,11 @@ class CarState:
 		
 		if enablePrint:
 			print("===========")
-			print("Steering Input", sInput)
-			print("Throttle Input", tInput)
 			print("Current location: ", self._location)
 			print("Current velocity: ", self._velocity)
 			print("Current speed: ", np.linalg.norm(self._velocity))
+			print("Steering Input", sInput)
+			print("Throttle Input", tInput)
 		'''
 		print("Throttle Input", tInput)
 		
