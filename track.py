@@ -327,7 +327,8 @@ class CarState:
 
 
 		# Whether to record
-		if random.random() < 0.02:
+
+		if random.random() < 0.05:
 			print("should record now")
 			self.initializeRecordBuff()
 			self._record = True
@@ -369,7 +370,7 @@ class CarState:
 		x = int(headPosition[1])
 
 		# print("next Speed", nextSpeed)
-		if (y >= curTrack.getTrackw() or y < 0 or x >= curTrack.getTrackl() or x < 0) or (not self._recover and curTrack.getGrid()[y][x] == 1 and nextSpeed > 0.9):
+		if (y >= curTrack.getTrackw() or y < 0 or x >= curTrack.getTrackl() or x < 0) or (not self._recover and utils.numEq(curTrack.getGrid()[y][x], 1) and nextSpeed > 0.9):
 			self._recover = True
 			self._collision_buff[9] = 1
 			# print("collision buffer: ", self._collision_buff)
@@ -579,12 +580,12 @@ class CarState:
 
 		self._total_T += 1
 		# print("sum of cb", np.sum(self._collision_buff))
-		done = (self._total_T > self._max_total_T) or np.sum(self._collision_buff) > 2
+		done = (self._total_T == self._max_total_T) or np.sum(self._collision_buff) > 2
 
 		if self._record:
 			self.record()
 			if done:
-				with open("graphicReplayData/iter{}-{}.pkl".format(index, int(time.time())), 'wb') as f:
+				with open("graphicReplayData/iter{}-{}-0.9-{}.pkl".format(index, int(time.time()), self._total_T), 'wb') as f:
 					pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
 
 		'''

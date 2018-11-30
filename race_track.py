@@ -38,6 +38,13 @@ class RaceTrackEnv(Env):
             sensor_only = self.sensor_only, max_total_T = self.max_path_length)
         self._car_main = Car(self._carState_main, 1)
         self._track.initializeCar(self._carState_main)
+        if self.num_cars > 1:
+            self._car_lst = []
+            for i in range(1, self.num_cars):
+                carState_i = CarState(startRanking = i + 1)
+                car_i = Car(carState_i, i + 1)
+                self._track.initializeCar(carState_i)
+                self._car_lst.append(carState_i)
         self.count = 0
 
         return self._get_obs()
