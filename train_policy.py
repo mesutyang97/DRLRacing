@@ -172,8 +172,10 @@ class Agent(object):
         self.recurrent = computation_graph_args['recurrent']
 
         self.animate = sample_trajectory_args['animate']
+        # Modification to accomodate multiple cars
         self.max_path_length = sample_trajectory_args['max_path_length']
         self.min_timesteps_per_batch = sample_trajectory_args['min_timesteps_per_batch']
+        self.num_cars = sample_trajectory_args['num_cars']
 
         self.gamma = estimate_return_args['gamma']
         self.nn_critic = estimate_return_args['nn_critic']
@@ -336,14 +338,17 @@ class Agent(object):
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
         self.policy_update_op = minimize_and_clip(optimizer, self.policy_surr_loss, var_list=self.policy_weights, clip_val=40)
 
-    def sample_trajectories(self, itr, env, min_timesteps, is_evaluation=False):
+    def sample_trajectories(self, itr, env, min_timesteps, n_cars, is_evaluation=False):
         # Collect paths until we have enough timesteps
         timesteps_this_batch = 0
         stats = []
         lengths = []
         while True:
             animate_this_episode=(len(stats)==0 and (itr % 10 == 0) and self.animate)
-            steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation, iter_i = itr)
+            if n_cars == 1:
+                steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation, iter_i = itr)
+            else:
+                steps, s = self.sample_trajectory_sync(env, animate_this_episode, is_evaluation=is_evaluation, iter_i = itr, num_cars = n_cars)
             lengths.append(steps)
             stats += s
             timesteps_this_batch += steps
@@ -453,6 +458,98 @@ class Agent(object):
                 break
 
         return steps, stats
+
+
+    def sample_trajectory_sync(self, env, animate_this_episode, is_evaluation, iter_i, num_cars):
+        """
+        asynchronous version of sample_trajectory method
+        """
+        env.reset_task(is_evaluation=is_evaluation)
+        stats = []
+        ep_steps = 0
+        steps_arr = np.zeros(num_cars,)
+
+        num_samples = max(self.history, self.max_path_length + 1)
+        meta_obs = np.zeros((num_cars, num_samples + self.history + 1, self.meta_ob_dim))
+        rewards_arr = [ [] for i in range(num_cars) ]
+
+        while True:
+            if animate_this_episode:
+                env.render()
+                time.sleep(0.1)
+            if ep_steps == 0:
+                ob = env.reset()
+            # Collection in parallel
+
+            for car_index in range(num_cars): 
+                if ep_steps == 0:
+                    # first meta ob has only the observation
+                    # set a, r, d to zero, construct first meta observation in meta_obs
+                    meta_obs[car_index][0] = np.concatenate((np.copy(ob), np.zeros(self.ac_dim), np.zeros(2)))
+                    steps_arr[car_index] += 1
+
+                # index into the meta_obs array to get the window that ends with the current timestep
+                # please name the windowed observation `in_` for compatibilty with the code that adds to the replay buffer (lines 418, 420)
+                # YOUR CODE HERE
+                if steps_arr[car_index] < self.history:
+                    rowsize = self.ob_dim + self.ac_dim + 2
+                    padding = np.zeros((int(self.history - steps_arr[car_index]), rowsize))
+
+                    data = np.copy(meta_obs[car_index][:int(steps_arr[car_index])])
+
+                    in_ = np.concatenate((padding, data), axis = 0)
+                    #print("in_ shape ", in_.shape)
+                else:
+                    in_ = meta_obs[int(car_index)][int(steps_arr[car_index] - self.history) : int(steps_arr[car_index])]
+                    #print("in_ shape2 ", in_.shape)
+
+                hidden = np.zeros((1, self.gru_size), dtype=np.float32)
+
+                # get action from the policy
+                # YOUR CODE HERE
+                ac = self.sess.run(self.sy_sampled_ac, feed_dict = {self.sy_ob_no : in_[None], self.sy_hidden: hidden[0][None]})
+
+                # step the environment
+                # YOUR CODE HERE
+                ob, rew, done, _ = env.step(ac, i = iter_i, car_i = car_index)
+
+                done = bool(done) or ep_steps == self.max_path_length
+                # construct the meta-observation and add it to meta_obs
+                # YOUR CODE HERE
+                rewdone = np.array([rew, done])
+
+                meta_obs[int(car_index)][int(steps_arr[car_index])] = np.concatenate((np.copy(ob).flatten(), ac.flatten(), rewdone))
+
+                rewards_arr[car_index].append(rew)
+                steps_arr[car_index] += 1
+
+                # add sample to replay buffer
+                if is_evaluation:
+                    self.val_replay_buffer.add_sample(in_, ac, rew, done, hidden)
+                else:
+                    self.replay_buffer.add_sample(in_, ac, rew, done, hidden)
+
+                # if one car done, start new episode
+                if done or steps_arr[car_index] >= num_samples:
+                    # compute stats over trajectory
+                    for car_index_j in range(num_cars):
+                        s = dict()
+                        s['rewards']= rewards_arr[car_index_j][-ep_steps:]
+                        s['ep_len'] = ep_steps
+                        stats.append(s)
+                        if car_index_j!= car_index:
+                            env.step(ac, i = iter_i, car_i = car_index_j, m_done = True)
+                    ep_steps = 0
+                    break
+            # Rude, sorry
+            else:
+                ep_steps += 1
+                continue
+            break
+            
+
+        return np.sum(steps_arr), stats
+
 
     def compute_advantage(self, ob_no, re_n, hidden, masks, tau=0.95):
         """
@@ -694,6 +791,7 @@ def train_PG(
         'animate': animate,
         'max_path_length': max_path_length,
         'min_timesteps_per_batch': min_timesteps_per_batch,
+        'num_cars': num_cars,
     }
 
     estimate_return_args = {
@@ -736,10 +834,9 @@ def train_PG(
         # sample trajectories to fill agent's replay buffer
         print("********** Iteration %i ************"%itr)
         stats = []
-        for _ in range(num_cars):
-            s, timesteps_this_batch = agent.sample_trajectories(itr, env, min_timesteps_per_batch)
-            total_timesteps += timesteps_this_batch
-            stats += s
+        s, timesteps_this_batch = agent.sample_trajectories(itr, env, min_timesteps_per_batch, num_cars)
+        total_timesteps += timesteps_this_batch
+        stats += s
 
         # compute the log probs, advantages, and returns for all data in agent's buffer
         # store in ppo buffer for use in multiple ppo updates
@@ -771,7 +868,7 @@ def train_PG(
         print('Validating...')
         val_stats = []
         for _ in range(num_cars):
-            vs, timesteps_this_batch = agent.sample_trajectories(itr, env, min_timesteps_per_batch // 3, is_evaluation=True)
+            vs, timesteps_this_batch = agent.sample_trajectories(itr, env, min_timesteps_per_batch // 3, num_cars, is_evaluation=True)
             val_stats += vs
 
         # save trajectories for viz

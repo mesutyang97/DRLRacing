@@ -31,17 +31,23 @@ class RaceTrackEnv(Env):
         self.enablePrint = False
         return None
 
-    def reset(self):
+    def reset(self, car_i = 0):
         self._track = Track(self.miu, self.dot_miu)
 
-        self._carState_main = CarState(startRanking = 1, env_window_w = self.env_window_w, obs_window_w = self.obs_window_w, 
-            sensor_only = self.sensor_only, max_total_T = self.max_path_length)
-        self._car_main = Car(self._carState_main, 1)
-        self._track.initializeCar(self._carState_main)
-        if self.num_cars > 1:
+        rec = (random.random() < 0.03)
+        if rec == True:
+            print("should record now")
+
+        if self.num_cars == 1:
+            self._carState_main = CarState(startRanking = 1, env_window_w = self.env_window_w, obs_window_w = self.obs_window_w, 
+                sensor_only = self.sensor_only, max_total_T = self.max_path_length, record = rec)
+            self._car_main = Car(self._carState_main, 1)
+            self._track.initializeCar(self._carState_main)
+        else:
             self._car_lst = []
-            for i in range(1, self.num_cars):
-                carState_i = CarState(startRanking = i + 1)
+            for i in range(0, self.num_cars):
+                carState_i = CarState(startRanking = i + 1, env_window_w = self.env_window_w, obs_window_w = self.obs_window_w, 
+                sensor_only = self.sensor_only, max_total_T = self.max_path_length, record = rec)
                 car_i = Car(carState_i, i + 1)
                 self._track.initializeCar(carState_i)
                 self._car_lst.append(carState_i)
@@ -49,16 +55,24 @@ class RaceTrackEnv(Env):
 
         return self._get_obs()
 
-    def _get_obs(self):
-        return self._carState_main.getObservation(self._track)
+    def _get_obs(self, car_i = 0):
+        if self.num_cars == 1:
+            return self._carState_main.getObservation(self._track)
+        else:
+            carState_i = self._car_lst[car_i]
+            return carState_i.getObservation(self._track)
 
-    def step(self, action, i = 0):
+    def step(self, action, i = 0, car_i = 0, m_done = False):
         self.count += 1
         if self.count % 5 == 0:
             self._track.rebuildTrack()
         action = action.flatten()
-        # Enforce 1.0 Throttle for now
-        return self._carState_main.step(action[0], action[1], self._track, i, self.enablePrint)
+        if self.num_cars == 1:
+            return self._carState_main.step(action[0], action[1], self._track, i, manual_done = m_done, enablePrint = self.enablePrint)
+        else: 
+            carState_i = self._car_lst[car_i]
+            return carState_i.step(action[0], action[1], self._track, i, manual_done = m_done, enablePrint = self.enablePrint)
+
 
     def viewer_setup(self):
         print('no viewer')

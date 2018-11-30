@@ -288,7 +288,7 @@ class Car:
 class CarState:
 	def __init__(self, startRanking = 1, startVelocity = sVelocity, mass=1.35, 
 		drag=0, topSpeed = 3, maxTurningAngle = 30, length = 400, width = 190, env_window_w = 100, 
-		obs_window_w = 5, sensor_only = 1, isLinear = True, max_total_T = 200):
+		obs_window_w = 5, sensor_only = 1, isLinear = True, max_total_T = 200, record = False):
 
 		if DOWNSAMPLED:
 			length = int(length/10)
@@ -327,13 +327,10 @@ class CarState:
 
 
 		# Whether to record
+		self._record = record
 
-		if random.random() < 0.05:
-			print("should record now")
+		if self._record:
 			self.initializeRecordBuff()
-			self._record = True
-		else:
-			self._record = False
 
 	def initializeRecordBuff(self):
 		self._record_buff = dict()
@@ -495,9 +492,14 @@ class CarState:
 		return im_dst
 
 
-	def step(self, sInput, tInput, curTrack, index = 0, enablePrint = False):
+	def step(self, sInput, tInput, curTrack, index = 0, manual_done = False, enablePrint = False):
 		# The current track contains information about other car on the track
-		
+		if manual_done and self._record:
+			print("I am in here")
+			with open("graphicReplayData/iter{}-{}-0.9-{}.pkl".format(index, int(time.time()), self._total_T), 'wb') as f:
+					pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
+			return
+
 		if enablePrint:
 			print("===========")
 			print("Current location: ", self._location)
@@ -551,29 +553,6 @@ class CarState:
 		rotated_v_unit = utils.rotateVector(v_unit, 90)
 		new_head = self._location + np.multiply(v_unit, self._length/2)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
-
-		if RECORD:
-			im_dst = self.getObservationWindow(curTrack)
-			obsname = "obs_images/" + str(index) + ".png"
-			plt.imsave(obsname, im_dst, cmap = 'gray')
-			plt.close("all")
-
-			corner_reorder = (corner[1], corner[0])
-
-			theta = utils.getAngle(v_unit) * 180/math.pi
-			#print("theta", theta)
-
-			g = curTrack.getGrid()
-			fig,ax = plt.subplots(1)
-			ax.imshow(g, cmap='gray')
-
-			rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
-			ax.add_patch(rect)
-
-			gridname = "grid_images/" + str(index) + ".png"
-			plt.savefig(gridname, cmap = 'gray')
-			plt.close()
-
 
 		# Put observation together
 		ob = self.getObservation(curTrack)
