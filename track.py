@@ -5,6 +5,9 @@ import numpy as np
 import math
 import utils
 import cv2
+import random
+import pickle
+
 
 # Python Imaging Library imports
 from PIL import Image
@@ -17,6 +20,7 @@ import matplotlib.patches as patches
 # tInput: throttle input
 # sInput: steering input: -1: left. +1: right
 
+import time
 
 RECORD = False
 
@@ -257,6 +261,7 @@ class Track:
 
 
 	def updateGrid(self, transformed_rect, filling):
+		transformed_rect = np.array(transformed_rect)
 		img = Image.fromarray(self._grid)
 		draw = ImageDraw.Draw(img)
 		draw.polygon([tuple(p) for p in transformed_rect], fill=filling)
@@ -318,8 +323,31 @@ class CarState:
 
 		self.num_crossed = 0
 
-
 		self._collision_buff = np.zeros(10)
+
+
+		# Whether to record
+		if random.random() < 0.02:
+			print("should record now")
+			self.initializeRecordBuff()
+			self._record = True
+		else:
+			self._record = False
+
+	def initializeRecordBuff(self):
+		self._record_buff = dict()
+		self._record_buff['length'] = self._length
+		self._record_buff['width'] = self._width
+		self._record_buff['env_window_w'] = self._env_window_w
+		self._record_buff['obs_window_w'] = self._obs_window_w
+		self._record_buff['lastTime'] = 0
+		self._record_buff['data'] = np.zeros((self._max_total_T + 1, 4))
+
+
+	def record(self):
+		step = self._record_buff['lastTime']
+		self._record_buff['data'][step:] = np.array([self._location, self._velocity]).flatten()
+		self._record_buff['lastTime']+=1
 
 	def getLocation(self):
 		return self._location
@@ -527,15 +555,15 @@ class CarState:
 			im_dst = self.getObservationWindow(curTrack)
 			obsname = "obs_images/" + str(index) + ".png"
 			plt.imsave(obsname, im_dst, cmap = 'gray')
-			plt.close()
+			plt.close("all")
 
 			corner_reorder = (corner[1], corner[0])
 
 			theta = utils.getAngle(v_unit) * 180/math.pi
 			#print("theta", theta)
 
-			fig,ax = plt.subplots(1)
 			g = curTrack.getGrid()
+			fig,ax = plt.subplots(1)
 			ax.imshow(g, cmap='gray')
 
 			rect = patches.Rectangle(corner_reorder,self._env_window_w,self._env_window_w,angle = theta, linewidth=1,edgecolor='r',facecolor='none')
@@ -545,12 +573,20 @@ class CarState:
 			plt.savefig(gridname, cmap = 'gray')
 			plt.close()
 
+
 		# Put observation together
 		ob = self.getObservation(curTrack)
 
 		self._total_T += 1
 		# print("sum of cb", np.sum(self._collision_buff))
 		done = (self._total_T > self._max_total_T) or np.sum(self._collision_buff) > 2
+
+		if self._record:
+			self.record()
+			if done:
+				with open("graphicReplayData/iter{}-{}.pkl".format(index, int(time.time())), 'wb') as f:
+					pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
+
 		'''
 		if np.sum(self._collision_buff) > 1:
 			print("--crashed out")
@@ -581,25 +617,6 @@ class Steering:
 			turningR_max = curSpeed * curSpeed / a_lim
 			turningAngle_max = math.degrees(math.asin(assumedTravel / (2.0 * turningR_max))) * sInput / abs(sInput)
 			return turningAngle_max, a_lim
-	'''
-	def rotateVelocity(self, curVelocity_unit, turningAngle):
-		assert turningAngle < self._maxAngle
-		old_theta = 0
-		if curVelocity_unit[0] == 0:
-			if curVelocity_unit[1] > 0:
-				print("used 1")
-				old_theta = 1.5707963267948966
-			else:
-				print("used 2")
-				old_theta = - 1.5707963267948966
-		else:
-			old_theta = math.tan(curVelocity_unit[1]/curVelocity_unit[0])
-		
-		new_theta = old_theta - math.radians(turningAngle)
-
-		# checkme
-		return (math.cos(new_theta), math.sin(new_theta))
-	'''
 	def rotateVelocity(self, curVelocity_unit, turningAngle):
 		return utils.rotateVector(curVelocity_unit, - turningAngle)
 

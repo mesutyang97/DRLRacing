@@ -28,7 +28,7 @@ class RaceTrackEnv(Env):
 
     def reset_task(self, is_evaluation=False):
         # self.enablePrint = is_evaluation
-        self.enablePrint = (is_evaluation) and (random.random() < 0.01) 
+        self.enablePrint = False
         return None
 
     def reset(self):

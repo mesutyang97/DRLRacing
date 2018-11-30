@@ -343,7 +343,7 @@ class Agent(object):
         lengths = []
         while True:
             animate_this_episode=(len(stats)==0 and (itr % 10 == 0) and self.animate)
-            steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation)
+            steps, s = self.sample_trajectory(env, animate_this_episode, is_evaluation=is_evaluation, iter_i = itr)
             lengths.append(steps)
             stats += s
             timesteps_this_batch += steps
@@ -353,7 +353,7 @@ class Agent(object):
         print("Trajectory lengths", lengths)
         return stats, timesteps_this_batch
 
-    def sample_trajectory(self, env, animate_this_episode, is_evaluation):
+    def sample_trajectory(self, env, animate_this_episode, is_evaluation, iter_i):
         """
         sample a task, then sample trajectories from that task until either
         max(self.history, self.max_path_length) timesteps have been sampled
@@ -420,7 +420,7 @@ class Agent(object):
 
             # step the environment
             # YOUR CODE HERE
-            ob, rew, done, _ = env.step(ac)
+            ob, rew, done, _ = env.step(ac, i = iter_i)
 
             ep_steps += 1
 

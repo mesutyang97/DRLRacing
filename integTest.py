@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 def setup(numCars):
-	track = Track(0.8, 0.3)
+	track = Track(0.6, 0.3)
 	controller_lst = []
 
 	for i in range(numCars):
@@ -31,14 +31,14 @@ def setup(numCars):
 
 
 
-t, ctrl_lst = setup(2)
+t, ctrl_lst = setup(1)
 
-maxStep = 2010
+maxStep = 203
 
 for i in range(maxStep):
 	for ctrl in ctrl_lst:
 		rd = random.uniform(-0.8, 0.8)
-		ob, rew, done, _ = ctrl.step((rd, 1.0), i)
+		ob, rew, done, _ = ctrl.step((rd, 1.0), 202)
 		# print ("test side done:", done)
 		#if done:
 		#	ctrl_lst.remove(ctrl)
