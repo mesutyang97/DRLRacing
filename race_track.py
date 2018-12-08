@@ -34,7 +34,7 @@ class RaceTrackEnv(Env):
     def reset(self, car_i = 0):
         self._track = Track(self.miu, self.dot_miu)
 
-        rec = (random.random() < 0.03)
+        rec = (random.random() < 0.015)
         if rec == True:
             print("should record now")
 
