@@ -302,6 +302,7 @@ class CarState:
 		self._location = np.array([startLocation_y, startLocation_x])
 		self._velocity = np.array(startVelocity)
 		self._rank = startRanking
+		self._carNumber = startRanking
 		self._mass = mass
 		self._drag = drag
 		self._steering = Steering(maxTurningAngle)
@@ -494,10 +495,13 @@ class CarState:
 
 	def step(self, sInput, tInput, curTrack, index = 0, manual_done = False, enablePrint = False):
 		# The current track contains information about other car on the track
-		if manual_done and self._record:
-			print("I am in here")
-			with open("graphicReplayData/iter{}-{}-0.9-{}.pkl".format(index, int(time.time()), self._total_T), 'wb') as f:
-					pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
+		if manual_done:
+			if self._record:
+				print("I am in here")
+				with open("graphicReplayData/iter{}-{}-0.9-car{}-{}.pkl".format(index, int(time.time()), self._carNumber, self._total_T), 'wb') as f:
+						pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
+				# Turn off record after recording
+				self._record = False
 			return
 
 		if enablePrint:
@@ -564,7 +568,7 @@ class CarState:
 		if self._record:
 			self.record()
 			if done:
-				with open("graphicReplayData/iter{}-{}-0.9-{}.pkl".format(index, int(time.time()), self._total_T), 'wb') as f:
+				with open("graphicReplayData/iter{}-{}-0.9-car{}-{}.pkl".format(index, int(time.time()), self._carNumber, self._total_T), 'wb') as f:
 					pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
 
 		'''

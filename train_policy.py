@@ -472,6 +472,7 @@ class Agent(object):
         num_samples = max(self.history, self.max_path_length + 1)
         meta_obs = np.zeros((num_cars, num_samples + self.history + 1, self.meta_ob_dim))
         rewards_arr = [ [] for i in range(num_cars) ]
+        done_arr = [False for i in range(num_cars) ]
 
         while True:
             if animate_this_episode:
@@ -482,6 +483,10 @@ class Agent(object):
             # Collection in parallel
 
             for car_index in range(num_cars): 
+                # If the agent is already done, don't step it anymore
+                if done_arr[car_index]:
+                    continue
+
                 if ep_steps == 0:
                     # first meta ob has only the observation
                     # set a, r, d to zero, construct first meta observation in meta_obs
@@ -514,8 +519,7 @@ class Agent(object):
                 ob, rew, done, _ = env.step(ac, i = iter_i, car_i = car_index)
 
                 done = bool(done) or ep_steps == self.max_path_length
-                # construct the meta-observation and add it to meta_obs
-                # YOUR CODE HERE
+
                 rewdone = np.array([rew, done])
 
                 meta_obs[int(car_index)][int(steps_arr[car_index])] = np.concatenate((np.copy(ob).flatten(), ac.flatten(), rewdone))
@@ -529,19 +533,25 @@ class Agent(object):
                 else:
                     self.replay_buffer.add_sample(in_, ac, rew, done, hidden)
 
-                # if one car done, start new episode
+                # one car is done
                 if done or steps_arr[car_index] >= num_samples:
-                    # compute stats over trajectory
-                    for car_index_j in range(num_cars):
-                        s = dict()
-                        s['rewards']= rewards_arr[car_index_j][-ep_steps:]
-                        s['ep_len'] = ep_steps
-                        stats.append(s)
-                        if car_index_j!= car_index:
-                            env.step(ac, i = iter_i, car_i = car_index_j, m_done = True)
-                    ep_steps = 0
+                    s = dict()
+                    s['rewards']= rewards_arr[car_index][-ep_steps:]
+                    s['ep_len'] = ep_steps
+                    stats.append(s)
+                    # Nobody else is done. This is the first car done
+                    if not any(done_arr):
+                        # compute stats over trajectory
+                        for car_index_j in range(num_cars): 
+                            if car_index_j!= car_index:
+                                env.step(ac, i = iter_i, car_i = car_index_j, m_done = True)
+                # Update done array in the end
+                done_arr[car_index] = done
+                if all(done_arr):
+                    done_arr = [False for i in range(num_cars) ]
+                    ep_steps = 0 
                     break
-            # Rude, sorry
+            #Rude, sorry
             else:
                 ep_steps += 1
                 continue
