@@ -616,9 +616,6 @@ class Throttle:
 
 		if self._isLinear:
 			desiredNextSpeed = self._topSpeed * tInput
-			'''
-			return max (0.000001, desiredNextSpeed)
-			'''
 			# Coasting: just drag
 			if (tInput == 0):
 				return curSpeed * (1 - self._drag)
