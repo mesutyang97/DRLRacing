@@ -1,5 +1,5 @@
 # controller.py
-# One-man project by Mesut Xiaocheng Yang
+# testing for race_track env by Mesut Xiaocheng Yang
 
 
 
@@ -12,5 +12,4 @@ class Controller:
 		return None
 
 	def step(self, ac, i = 0):
-		print("steped", i)
 		return self._car.getCarState().step(ac[0], ac[1], self._track, i)

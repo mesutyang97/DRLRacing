@@ -1,4 +1,5 @@
-# integral testing
+# integTest.py
+# Developed by Xiaocheng Mesut Yang for CS294-112 Fall 2018
 
 
 from track import *
@@ -24,10 +25,7 @@ def setup(numCars):
 	print(g.shape)
 	plt.imshow(g, cmap='gray')
 	plt.show()
-
 	return track, controller_lst
-
-
 
 
 

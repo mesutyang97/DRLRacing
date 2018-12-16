@@ -1,4 +1,5 @@
 # track.py
+# Developed by Xiaocheng Mesut Yang for CS294-112 Fall 2018
 # This file contains all the necessary component to simulate a ractrack
 
 import numpy as np
@@ -7,7 +8,6 @@ import utils
 import cv2
 import random
 import pickle
-
 
 # Python Imaging Library imports
 from PIL import Image
@@ -22,15 +22,16 @@ import matplotlib.patches as patches
 
 import time
 
-RECORD = False
-
+# Simulator parameter: how long is each time stemp
 STEPT = 0.1
 
+# Simulator parameter: how much car will bounce off in collision
 COLLISONPEN = 3.0
 
+# Simulator parameter: whether to use downsampled version of the simulator.
 DOWNSAMPLED = True
 
-# Here are some default parameters for a oval track
+# Here are some default parameters for the default oval track
 w_ft = 20
 l_ft = 40
 bd_lst = [((10, 10), (10, 30), 6), ((7, 0.8), (0.8, 7), 2.5), ((7, 39.2), (0.8, 33), 2.5), ((13, 39.2), (19.8, 33), 2.5), ((13, 0.8), (19.8, 7), 2.5)]
@@ -38,8 +39,6 @@ dt_lst = [((10, 10), 3), ((10, 30), 3)]
 boardwith_ft = 1.63
 fl = ((boardwith_ft, 20), (7, 20), 3, (0, 1))
 al_lst = [((13, 20), (20 - boardwith_ft, 20), 3, (0, -1))]
-
-
 
 poleLocation = (7, 8)
 lineupSpace = (0, 3)
@@ -93,7 +92,6 @@ class Track:
 	'''
 	The board_lst will be a list of form
 	((endpoint_A_y, endpoint_A_x), (endpoint_B_y, endpoint_B_x), width)
-	Enforced: endpoint_A_y <= endpoint_B_y, and endpoint_A_x <= endpoint_B_x
 	'''
 	def buildBoards(self, board_lst):
 		for board in board_lst:
@@ -110,10 +108,6 @@ class Track:
 				endpoint_B_x_ft = endpoint_B_x_ft/10
 			endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
 			endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
-			'''
-			assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
-			assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
-			'''
 
 			half_width = utils.ftToMm(board[2]/2)
 			if DOWNSAMPLED:
@@ -217,10 +211,6 @@ class Track:
 				endpoint_B_x_ft = endpoint_B_x_ft/10
 			endpoint_B_y = utils.ftToMm(endpoint_B_y_ft)
 			endpoint_B_x = utils.ftToMm(endpoint_B_x_ft)
-			'''
-			assert endpoint_A_y <= endpoint_B_y, "Endpoint invariant in y violated"
-			assert endpoint_A_x <= endpoint_B_x, "Endpoint invariant in x violated"
-			'''
 
 			half_width = utils.ftToMm(al[2]/2)
 			if DOWNSAMPLED:
@@ -319,13 +309,13 @@ class CarState:
 		# own clock
 		self._clock = 0
 
+		# total time step in the last episold
 		self._total_T = 0
 		self._max_total_T = max_total_T
 
 		self.num_crossed = 0
 
 		self._collision_buff = np.zeros(10)
-
 
 		# Whether to record
 		self._record = record
@@ -386,8 +376,7 @@ class CarState:
 		else:
 			rew = 0
 
-		# Attemp: speed reward:
-
+		# Speed reward:
 		rew = rew + np.abs(np.linalg.norm(nextVelocity) / self._topSpeed)
 
 		y_c = int(curLocation[0])
@@ -427,9 +416,6 @@ class CarState:
 				print("DINGDINGDINGDING")
 			rew += 1000 * 1/self._clock
 			self._clock = 0
-		# print("reward: ", rew)
-
-
 		return rew
 
 	'''
@@ -460,13 +446,8 @@ class CarState:
 		# Get the observation
 		# Direction of the car
 		v_unit = self._velocity/np.linalg.norm(self._velocity)
-		#print("vu", v_unit)
 		rotated_v_unit = utils.rotateVector(v_unit, 90)
-		#print("rotatedvu", rotated_v_unit)
-		#print("self location", self._location)
 		new_head = self._location + np.multiply(v_unit, self._length/2)
-		#print("new_head", new_head)
-		#print("self._env_window_w", self._env_window_w)
 		corner = new_head - np.multiply(rotated_v_unit, self._env_window_w/2)
 		corner_1 = corner + np.multiply(v_unit, self._env_window_w)
 		corner_2 = corner_1 + np.multiply(rotated_v_unit, self._env_window_w)
@@ -476,12 +457,8 @@ class CarState:
 
 		# Courtesy to https://www.learnopencv.com/homography-examples-using-opencv-python-c/
 		corners = np.array([corner, corner_1, corner_2, corner_3])
-		#print("corners")
-		#print(corners)
 		pts_src[:,0] = corners[:,1]
 		pts_src[:,1] = corners[:,0]
-		#print("pts_src")
-		#print(pts_src)
 
 		pts_dst = np.array([[0, 0],[self._obs_window_w, 0], [self._obs_window_w, self._obs_window_w], [0, self._obs_window_w]])
 
@@ -511,15 +488,9 @@ class CarState:
 			print("Current speed: ", np.linalg.norm(self._velocity))
 			print("Steering Input", sInput)
 			print("Throttle Input", tInput)
-		'''
-		print("Throttle Input", tInput)
-		
-		'''
 		
 		curSpeed = np.linalg.norm(self._velocity)
 		curVelocity_unit = self._velocity/curSpeed
-		# Assertion
-		assert np.linalg.norm(curVelocity_unit) > 0.99 and np.linalg.norm(curVelocity_unit) < 1.01
 
 		a_lim = curTrack.miu * 9.8
 		turningAngle, a_c = self._steering.getAC(curSpeed, sInput, a_lim)
@@ -571,11 +542,6 @@ class CarState:
 				with open("graphicReplayData/iter{}-{}-0.9-car{}-{}.pkl".format(index, int(time.time()), self._carNumber, self._total_T), 'wb') as f:
 					pickle.dump(self._record_buff, f, pickle.HIGHEST_PROTOCOL)
 
-		'''
-		if np.sum(self._collision_buff) > 1:
-			print("--crashed out")
-		'''
-		# print("remote side done: ", done)
 		return ob, rew, done, dict()
 
 
@@ -616,7 +582,7 @@ class Throttle:
 
 		if self._isLinear:
 			desiredNextSpeed = self._topSpeed * tInput
-			# Coasting: just drag
+			# No throttle inputl, coasting: just drag
 			if (tInput == 0):
 				return curSpeed * (1 - self._drag)
 			desired_a_t = (desiredNextSpeed - curSpeed)/STEPT

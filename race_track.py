@@ -1,3 +1,7 @@
+# race_track.py
+# This is a wrapper file for track.py
+# Developed by Xiaocheng Mesut Yang for CS294-112 Fall 2018
+
 import numpy as np
 from gym import spaces
 from gym import Env
@@ -6,8 +10,8 @@ import random
 
 class RaceTrackEnv(Env):
     """
+    Race Track Environment
     """
-
     def __init__(self, num_cars=1, miu = 0.8, dot_miu = 0.3, env_window_w = 500, obs_window_w = 10, sensor_only = 1, max_path_length = 200):
         self.num_cars = num_cars
         self.miu = miu
@@ -27,7 +31,6 @@ class RaceTrackEnv(Env):
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(2,))
 
     def reset_task(self, is_evaluation=False):
-        # self.enablePrint = is_evaluation
         self.enablePrint = False
         return None
 
